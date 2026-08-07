@@ -15,7 +15,11 @@ This release is intentionally positioned as a **technical prototype and portfoli
 
 The current snapshot contains **182 indexed documents, 338 source pages, and 1,422 chunks** across two isolated corpora. The public Sites deployments intentionally run deterministic BM25 search without visitor API keys. The full local implementation adds a 0.6B multilingual embedding model and reciprocal-rank fusion (RRF).
 
+**Live demonstrations:** [TXC corpus](https://evidence-rag-txc.zzkws.chatgpt.site) · [TKD corpus](https://evidence-rag-tkd.zzkws.chatgpt.site)
+
 本次快照包含两套互相隔离的语料，共 **182 份已索引文档、338 页和 1,422 个 chunks**。公开 Sites 只运行确定性的浏览器 BM25，不要求访客提供密钥；完整本地实现再加入 0.6B 多语言 embedding 与 RRF 融合。
+
+**在线演示：** [TXC 语料](https://evidence-rag-txc.zzkws.chatgpt.site) · [TKD 语料](https://evidence-rag-tkd.zzkws.chatgpt.site)
 
 ## The strongest result is traceability, not an unverified answer score / 当前最可靠的成果是可追溯性，而不是未经验证的问答分数
 

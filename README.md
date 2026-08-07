@@ -21,8 +21,8 @@ Evidence RAG Pilot is a public demonstration of my document-AI and RAG engineeri
 
 | Corpus | Documents | Pages | Chunks | Demo |
 |---|---:|---:|---:|---|
-| TXC | 108 | 226 | 875 | URL will be added after deployment |
-| TKD | 74 | 112 | 547 | URL will be added after deployment |
+| TXC | 108 | 226 | 875 | [Open the TXC demo](https://evidence-rag-txc.zzkws.chatgpt.site) |
+| TKD | 74 | 112 | 547 | [Open the TKD demo](https://evidence-rag-tkd.zzkws.chatgpt.site) |
 
 The sites are interactive technical exhibits: search, inspect an evidence chunk, then follow its page geometry and pipeline role. No API key or GPU is required.
 
