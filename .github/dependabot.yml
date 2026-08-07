@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: npm
+    directory: /sites/txc-demo
+    schedule:
+      interval: monthly
+  - package-ecosystem: npm
+    directory: /sites/tkd-demo
+    schedule:
+      interval: monthly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

@@ -1,0 +1,2 @@
+# Compatibility entrypoint. Prefer: pip install -e ".[pipeline,mcp]"
+-e .[pipeline,mcp]

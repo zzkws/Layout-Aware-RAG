@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Chunk 浏览 — TXC Evidence RAG</title>
+<style>
+:root { --red:#d62728; --ink:#1d2129; --muted:#667085; --line:#e4e7ec;
+        --bg:#f7f8fa; --card:#fff; }
+*    { box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,'Microsoft YaHei',sans-serif;
+       margin:0; background:var(--bg); color:var(--ink); line-height:1.55; }
+.wrap{ max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+h1   { font-size:24px; margin:6px 0 2px; }
+h1 .accent{ color:var(--red); }
+.sub { color:var(--muted); font-size:14px; margin-bottom:18px; }
+.sub a{ color:var(--red); text-decoration:none; }
+.toolbar{ position:sticky; top:0; z-index:5; background:var(--bg);
+       padding:10px 0 12px; display:flex; gap:10px; flex-wrap:wrap;
+       border-bottom:1px solid var(--line); }
+select, input[type=text]{
+       font-size:14px; padding:8px 12px; border:1.5px solid var(--line);
+       border-radius:8px; outline:none; font-family:inherit; background:#fff; }
+select:focus, input[type=text]:focus{ border-color:var(--red); }
+input[type=text]{ flex:1; min-width:200px; }
+.count{ align-self:center; font-size:13px; color:var(--muted); }
+.dochead{ margin-top:30px; padding:10px 14px; background:#fff;
+       border:1px solid var(--line); border-left:5px solid var(--red);
+       border-radius:8px; }
+.dochead b{ font-size:16px; }
+.dochead .meta{ font-size:12.5px; color:var(--muted); margin-top:2px; }
+.chunk{ background:var(--card); border:1px solid var(--line); border-radius:10px;
+        padding:14px 16px; margin-top:12px; }
+.head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:13px; }
+.chip { background:#eef2f7; border-radius:6px; padding:2px 9px;
+        font-family:Consolas,monospace; font-size:12px; }
+.chip.t{ background:#fde8e8; color:#a61b1b; }
+.meta { color:var(--muted); font-size:12.5px; margin-top:5px;
+        font-family:Consolas,monospace; }
+.desc { background:#eef6ff; border-radius:6px; padding:9px 12px; margin-top:9px;
+        font-size:13.5px; }
+.snip { color:#555; font-size:12px; font-family:Consolas,monospace;
+        background:#f4f4f4; border-radius:6px; padding:7px 10px; margin-top:8px;
+        max-height:88px; overflow:auto; }
+.kw   { margin-top:8px; }
+.kw span{ display:inline-block; background:#f0faf4; color:#1a7f43;
+        border-radius:5px; padding:1px 8px; font-size:12px; margin:2px 4px 0 0; }
+.imgs { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.imgs img{ max-height:320px; max-width:100%; border:1px solid var(--line);
+           border-radius:6px; cursor:zoom-in; }
+.empty{ color:var(--muted); padding:40px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>RAG 库 <span class="accent">Chunk 浏览</span></h1>
+<div class="sub">每个 chunk = 一个版面板块（成员元素各自带 bbox/裁剪图）·
+<a href="/">← 返回检索演示</a> · <a href="/doc">文档目录树 →</a></div>
+
+<div class="toolbar">
+  <select id="fDoc" onchange="render()"><option value="">全部文档</option></select>
+  <select id="fType" onchange="render()"><option value="">全部类型</option></select>
+  <input type="text" id="fText" placeholder="按关键字过滤（chunk id / 标题 / 目录 / 原文 / description）"
+         oninput="render()">
+  <div class="count" id="count"></div>
+</div>
+
+<div id="list"></div>
+
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let ALL = [];
+
+async function load(){
+  const d = await (await fetch('/api/chunks')).json();
+  ALL = d.chunks;
+  const docs = [...new Set(ALL.map(c=>c.doc_id))].sort();
+  const types = [...new Set(ALL.map(c=>c.block_type))].sort();
+  $('fDoc').innerHTML += docs.map(x=>`<option>${esc(x)}</option>`).join('');
+  $('fType').innerHTML += types.map(x=>`<option>${esc(x)}</option>`).join('');
+  render();
+}
+
+function render(){
+  const fd = $('fDoc').value, ft = $('fType').value,
+        q  = $('fText').value.trim().toLowerCase();
+  const hit = ALL.filter(c =>
+    (!fd || c.doc_id === fd) && (!ft || c.block_type === ft) &&
+    (!q || [c.chunk_id, c.section_title, c.toc_path, c.native_text,
+            c.description].join(' ').toLowerCase().includes(q)));
+  $('count').textContent = `${hit.length} / ${ALL.length} chunks`;
+  if(!hit.length){ $('list').innerHTML = '<div class="empty">没有匹配的 chunk</div>'; return; }
+
+  let html = '', lastDoc = '';
+  for(const c of hit){
+    if(c.doc_id !== lastDoc){
+      lastDoc = c.doc_id;
+      const n = hit.filter(x=>x.doc_id===c.doc_id).length;
+      html += `<div class="dochead"><b>${esc(c.doc_id)}.pdf</b>
+        <span class="chip">${n} chunks</span>
+        <a href="/doc?doc=${encodeURIComponent(c.doc_id)}"
+           style="color:var(--red);text-decoration:none;font-size:13px">目录树 →</a>
+        <div class="meta">${esc(c.source_pdf)}</div></div>`;
+    }
+    html += `
+    <div class="chunk">
+      <div class="head">
+        <span class="chip t">${esc(c.block_type)}</span>
+        <b>${esc(c.section_title || c.chunk_id)}</b>
+        <span class="chip">p${c.page}</span>
+        <span class="chip">${c.n_elements} 元素</span>
+        <span class="chip">${esc(c.chunk_id)}</span>
+      </div>
+      ${c.toc_path ? `<div class="meta">📍 ${esc(c.toc_path)}</div>` : ''}
+      <div class="imgs">${(c.merged_image ? [c.merged_image] : c.crop_images).map(p=>
+        `<a href="/data/${p}" target="_blank"><img src="/data/${p}" loading="lazy"></a>`).join('')}</div>
+      <div class="desc">${esc(c.description)}</div>
+      ${c.native_text ? `<div class="snip">${esc(c.native_text)}</div>` : ''}
+      ${c.keywords.length ? `<div class="kw">${c.keywords.map(k=>
+        `<span>${esc(k)}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }
+  $('list').innerHTML = html;
+}
+load();
+</script>
+</body>
+</html>

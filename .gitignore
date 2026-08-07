@@ -1,0 +1,44 @@
+# Secrets and local configuration
+.deepseek_key
+.gemini_key
+.env
+.env.*
+!.env.example
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local models and generated corpora
+/models/
+/data/
+/data_tkd/
+/release_artifacts/
+/deploy/gemma_autostart.sh
+
+# Runtime output
+*.log
+*.err.log
+/reports/*.html
+/reports/*.json
+
+# Site dependencies and builds
+node_modules/
+dist/
+.next/
+.vinext/
+.wrangler/
+.playwright-cli/
+/output/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

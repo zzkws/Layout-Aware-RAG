@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this technical prototype, please cite it as below."
+title: "Evidence RAG Pilot"
+abstract: "A traceable, page-native RAG prototype for engineering datasheets."
+authors:
+  - name: "zzkws"
+version: 0.1.0
+date-released: 2026-08-07
+license: Apache-2.0
+repository-code: "https://github.com/zzkws/evidence-rag-pilot"

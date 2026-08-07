@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      - id: public-safety-scan
+        name: public safety scan
+        entry: python -m tools.scan_public
+        language: system
+        pass_filenames: false
+      - id: python-tests
+        name: Python unit tests
+        entry: python -m pytest
+        language: system
+        pass_filenames: false
