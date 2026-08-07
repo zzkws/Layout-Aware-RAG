@@ -6,7 +6,6 @@ from pathlib import Path
 from common.tokenize import tokenize
 from evidence_service import EvidenceService
 from pipeline.search import Index
-from tools.evaluate_retrieval import reciprocal_rank
 from tools.export_site_data import export_bundle
 from tools.public_data import public_chunk, public_source_name
 
@@ -76,11 +75,6 @@ def test_public_paths_strip_machine_details():
     projected = public_chunk(FakeIndex().chunks[0])
     assert projected["source_pdf"] == "pdf/d1.pdf"
     assert "private" not in json.dumps(projected)
-
-
-def test_reciprocal_rank():
-    assert reciprocal_rank(["a", "b", "c"], {"b"}) == 0.5
-    assert reciprocal_rank(["a"], {"z"}) == 0.0
 
 
 def test_site_export_is_compact_and_path_safe(tmp_path: Path):

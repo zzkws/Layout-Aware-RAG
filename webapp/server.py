@@ -192,11 +192,6 @@ def rewrite_query(user_request: str) -> dict:
     return json.loads(r.json()["choices"][0]["message"]["content"])
 
 
-# Backward-compatible names used by the existing evaluation runner.
-deepseek_rewrite = rewrite_query
-gemma_answer = generate_answer
-
-
 class Handler(BaseHTTPRequestHandler):
 
     def _json(self, obj, status=200):
