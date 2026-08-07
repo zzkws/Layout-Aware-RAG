@@ -1,6 +1,6 @@
 # TXC Evidence RAG demo
 
-Public, model-free technical exhibit for the TXC corpus. It runs deterministic BM25 in the browser and exposes the page-native evidence contract.
+Public static deployment of the original TXC demo structure. The corpus overview, search view, chunk browser, document tree, and evidence-dialog page read versioned static snapshots and require no hosted model.
 
 ```bash
 npm install

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>TXC Datasheet Evidence RAG — 演示</title>
+<style>
+:root { --red:#d62728; --ink:#1d2129; --muted:#667085; --line:#e4e7ec;
+        --bg:#f7f8fa; --card:#fff; }
+*    { box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,'Microsoft YaHei',sans-serif;
+       margin:0; background:var(--bg); color:var(--ink); line-height:1.55; }
+.wrap{ max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+h1   { font-size:26px; margin:6px 0 2px; }
+h1 .accent{ color:var(--red); }
+.sub { color:var(--muted); font-size:14px; margin-bottom:26px; }
+h2   { font-size:19px; border-left:5px solid var(--red); padding-left:10px;
+       margin:42px 0 16px; }
+.cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+        gap:12px; }
+.stat { background:var(--card); border:1px solid var(--line); border-radius:10px;
+        padding:14px 16px; }
+.stat .n{ font-size:26px; font-weight:700; color:var(--red); }
+.stat .l{ font-size:12.5px; color:var(--muted); }
+.panel{ background:var(--card); border:1px solid var(--line); border-radius:10px;
+        padding:18px; margin-top:14px; }
+.bar-row{ display:flex; align-items:center; gap:10px; margin:5px 0; font-size:13px; }
+.bar-row .name{ width:250px; text-align:right; color:var(--muted);
+                font-family:Consolas,monospace; font-size:12px; }
+.bar-row .bar { height:16px; background:var(--red); border-radius:3px;
+                min-width:2px; opacity:.85; }
+table{ border-collapse:collapse; width:100%; font-size:13.5px; }
+th,td{ border-bottom:1px solid var(--line); padding:7px 10px; text-align:left; }
+th   { color:var(--muted); font-weight:600; font-size:12.5px; }
+.searchbox{ display:flex; gap:10px; }
+input[type=text], textarea{
+       flex:1; font-size:15px; padding:10px 14px; border:1.5px solid var(--line);
+       border-radius:8px; outline:none; font-family:inherit; }
+input[type=text]:focus, textarea:focus{ border-color:var(--red); }
+textarea{ resize:vertical; min-height:64px; }
+button{ background:var(--red); color:#fff; border:none; border-radius:8px;
+        padding:10px 22px; font-size:15px; cursor:pointer; white-space:nowrap; }
+button:hover{ filter:brightness(1.08); }
+button:disabled{ background:#ccc; cursor:wait; }
+.hint { font-size:12.5px; color:var(--muted); margin-top:8px; }
+.hint a{ color:var(--red); cursor:pointer; text-decoration:none; }
+.qcard{ background:#fff8e6; border:1px solid #e8c96a; border-radius:8px;
+        padding:10px 14px; margin-top:14px; font-size:14px; }
+.qcard .q{ font-weight:700; font-family:Consolas,monospace; }
+.result{ background:var(--card); border:1px solid var(--line); border-radius:10px;
+         padding:14px 16px; margin-top:12px; }
+.result .head{ display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+               font-size:13px; }
+.rank { background:var(--red); color:#fff; border-radius:6px; padding:2px 9px;
+        font-weight:700; }
+.chip { background:#eef2f7; border-radius:6px; padding:2px 9px;
+        font-family:Consolas,monospace; font-size:12px; }
+.meta { color:var(--muted); font-size:12.5px; margin-top:5px;
+        font-family:Consolas,monospace; }
+.desc { background:#eef6ff; border-radius:6px; padding:9px 12px; margin-top:9px;
+        font-size:13.5px; }
+.snip { color:#555; font-size:12px; font-family:Consolas,monospace;
+        background:#f4f4f4; border-radius:6px; padding:7px 10px; margin-top:8px;
+        max-height:76px; overflow:auto; }
+.imgs { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.imgs img{ max-height:320px; max-width:100%; border:1px solid var(--line);
+           border-radius:6px; cursor:zoom-in; }
+.err  { color:#b42318; background:#fef3f2; border:1px solid #fecdca;
+        border-radius:8px; padding:10px 14px; margin-top:12px; font-size:14px; }
+.answer{ background:#f0faf4; border:1.5px solid #abdfbe; border-radius:10px;
+        padding:14px 18px; margin-top:14px; font-size:14.5px; white-space:pre-wrap; }
+.answer .who{ font-size:12px; color:#1a7f43; font-weight:700; margin-bottom:6px;
+        letter-spacing:.4px; }
+.answer a.cite{ color:#1a7f43; font-weight:700; text-decoration:none;
+        background:#d8f0e2; border-radius:4px; padding:0 4px; }
+.ebadge{ background:#1a7f43; color:#fff; border-radius:6px; padding:2px 8px;
+        font-size:12px; font-weight:700; }
+.spin { margin-top:14px; color:var(--muted); font-size:14px; }
+.spin::before{ content:''; display:inline-block; width:14px; height:14px;
+        border:2.5px solid var(--line); border-top-color:var(--red);
+        border-radius:50%; margin-right:8px; vertical-align:-2px;
+        animation:r .8s linear infinite; }
+@keyframes r{ to{ transform:rotate(360deg);} }
+</style>
+</head>
+<body>
+<script src="/legacy-adapter.js"></script>
+<div class="wrap">
+
+<h1>TXC Datasheet <span class="accent">Evidence RAG</span> 演示</h1>
+<div class="sub">原始 Demo 结构 · 版面板块级 chunk · PDF 页码 / bbox / 裁剪图证据 ·
+公开版读取静态语料快照并在浏览器内执行 BM25；完整本地管线使用 harrier-0.6b + BM25 / RRF
+· <a href="/chunks" style="color:var(--red);text-decoration:none">浏览全部 chunks →</a>
+· <a href="/doc" style="color:var(--red);text-decoration:none">文档目录树 →</a>
+· <a href="/chat" style="color:var(--red);text-decoration:none">可选模型对话 →</a></div>
+
+<h2>① RAG 库分布</h2>
+<div class="cards" id="statCards"></div>
+<div class="panel">
+  <b style="font-size:14px">Chunk 类型分布</b>
+  <div id="typeBars" style="margin-top:8px"></div>
+</div>
+<div class="panel" style="overflow-x:auto">
+  <b style="font-size:14px">文档清单</b>
+  <table id="docTable" style="margin-top:8px"></table>
+</div>
+
+<h2>② 检索静态 RAG 快照</h2>
+<div class="panel">
+  <div class="searchbox">
+    <input type="text" id="qInput" placeholder="输入英文检索式，如：10 pad pin connection tri-state"
+           onkeydown="if(event.key==='Enter')doSearch()">
+    <button id="qBtn" onclick="doSearch()">检索</button>
+  </div>
+  <div class="hint">试一试：
+    <a onclick="fillQ('crystal load capacitance 6~20pF 3225 package')">负载电容 3225</a> ·
+    <a onclick="fillQ('OCXO phase noise at 1kHz offset 10MHz')">OCXO 相位噪声</a> ·
+    <a onclick="fillQ('10 pad pin connection tri-state which pin')">10pad 引脚</a> ·
+    <a onclick="fillQ('test circuit clipped sinewave RL 10k CL 10pF')">测试电路</a></div>
+  <div id="qStatus"></div>
+  <div id="qResults"></div>
+</div>
+
+<h2>③ 静态需求检索 → 证据摘要</h2>
+<div class="panel">
+  <div class="searchbox">
+    <textarea id="aInput"
+placeholder="用自然语言描述需求；配置改写模型后，系统会生成适合本库的检索式再召回。&#10;例：我在做5G基站时钟，需要一颗高稳定度OCXO，想看看相位噪声和老化指标"></textarea>
+    <button id="aBtn" onclick="doAsk()">改写并检索</button>
+  </div>
+  <div class="hint">公开展示链路：需求 → 浏览器 BM25 → 静态证据块 → 带引用的证据摘要；不调用云端模型</div>
+  <div id="aQuery"></div>
+  <div id="aAnswer"></div>
+  <div id="aStatus"></div>
+  <div id="aResults"></div>
+</div>
+
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function loadStats(){
+  const s = await (await fetch('/api/stats')).json();
+  $('statCards').innerHTML = [
+    [s.total_docs,'文档（TXC datasheet）'], [s.total_pages,'页面'],
+    [s.total_chunks,'chunks（版面板块）'],
+    [s.block_types.length,'板块类型'],
+  ].map(([n,l])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('')
+  + `<div class="stat"><div class="n" style="font-size:15px;padding-top:6px">${esc(s.embed_model.split('/')[1])} + BM25<br>${esc(s.vlm_model)}</div><div class="l">嵌入 / 切块 VLM</div></div>`;
+  const max = s.block_types[0][1];
+  $('typeBars').innerHTML = s.block_types.map(([t,n])=>
+    `<div class="bar-row"><div class="name">${esc(t)}</div>
+     <div class="bar" style="width:${Math.round(n/max*420)}px"></div><div>${n}</div></div>`).join('');
+  $('docTable').innerHTML =
+    '<tr><th>doc</th><th>系列</th><th>类型</th><th>频率范围</th><th>封装(mm)</th><th>页</th><th>chunks</th></tr>'
+    + s.docs.map(d=>`<tr><td><b>${esc(d.doc_id)}</b></td><td>${esc(d.series)}</td>
+      <td>${esc(d.product_type)}</td><td>${esc(d.frequency_range)}</td>
+      <td>${esc(d.package)}</td><td>${d.pages}</td><td>${d.chunks}</td></tr>`).join('');
+}
+
+function renderResults(list, box, anchorPrefix){
+  if(!list.length){ box.innerHTML = '<div class="err">没有召回结果</div>'; return; }
+  box.innerHTML = list.map((r,i)=>`
+    <div class="result" ${anchorPrefix?`id="${anchorPrefix}${i+1}"`:''}>
+      <div class="head">
+        ${anchorPrefix?`<span class="ebadge">E${i+1}</span>`:''}
+        <span class="rank">BM25 ${r.bm25_score.toFixed(3)}</span>
+        <span class="chip">static snapshot</span>
+        <span class="chip">${esc(r.block_type)}</span>
+        <b>${esc(r.section_title || r.chunk_id)}</b>
+      </div>
+      <div class="meta">${esc(r.chunk_id)} · ${esc(r.doc_id)}.pdf 第 ${r.page} 页 ·
+        ${r.bboxes_pdf.length} 个元素 bbox · 证据: ${esc(r.source_pdf)}</div>
+      ${r.toc_path ? `<div class="meta">📍 目录定位: ${esc(r.toc_path)}</div>` : ''}
+      <div class="desc">${esc(r.description)}</div>
+      ${r.native_text ? `<div class="snip">${esc(r.native_text)}</div>` : ''}
+      <div class="imgs">${(r.merged_image ? [r.merged_image] : r.crop_images).map(p=>
+        `<a href="/data/${p}" target="_blank"><img src="/data/${p}"></a>`).join('')}</div>
+    </div>`).join('');
+}
+
+function fillQ(q){ $('qInput').value = q; doSearch(); }
+
+async function doSearch(){
+  const q = $('qInput').value.trim(); if(!q) return;
+  $('qBtn').disabled = true;
+  $('qStatus').innerHTML = '<div class="spin">正在检索随站发布的静态快照…</div>';
+  $('qResults').innerHTML = '';
+  try{
+    const r = await fetch('/api/search', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query:q, top_k:15})});
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    $('qStatus').innerHTML = '';
+    renderResults(d.results, $('qResults'));
+  }catch(e){ $('qStatus').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  $('qBtn').disabled = false;
+}
+
+async function doAsk(){
+  const t = $('aInput').value.trim(); if(!t) return;
+  $('aBtn').disabled = true;
+  $('aQuery').innerHTML = ''; $('aAnswer').innerHTML = '';
+  $('aStatus').innerHTML = '<div class="spin">正在改写需求…</div>';
+  $('aResults').innerHTML = '';
+  try{
+    const r = await fetch('/api/ask', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({request:t, top_k:15})});
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    $('aQuery').innerHTML = `<div class="qcard">生成的检索式：
+      <span class="q">${esc(d.query)}</span>
+      ${d.note ? `<div style="color:#8a6d1d;font-size:13px;margin-top:4px">${esc(d.note)}</div>` : ''}</div>`;
+    $('aStatus').innerHTML = '';
+    renderResults(d.results, $('aResults'), 'ev');
+    if(d.results.length) await genAnswer(t, d.query, d.results);
+  }catch(e){ $('aStatus').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  $('aBtn').disabled = false;
+}
+
+async function genAnswer(request, query, results){
+  $('aAnswer').innerHTML =
+    '<div class="spin">正在组织静态证据摘要…</div>';
+  try{
+    const r = await fetch('/api/answer', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({request, query,
+        chunk_ids: results.map(x=>x.chunk_id)})});
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const htmlAns = esc(d.answer)
+      .replace(/\[E(\d+)\]/g, '<a class="cite" href="#ev$1">[E$1]</a>')
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/^[\*\-]\s+/gm, '• ');
+    $('aAnswer').innerHTML = `<div class="answer">
+      <div class="who">EVIDENCE SUMMARY · ${esc(d.model)} · 基于下方 ${results.length} 个静态证据块</div>${htmlAns}</div>`;
+  }catch(e){
+    $('aAnswer').innerHTML =
+      `<div class="err">答案生成失败：${esc(e.message)}（召回结果仍在下方）</div>`;
+  }
+}
+
+loadStats();
+</script>
+</body>
+</html>

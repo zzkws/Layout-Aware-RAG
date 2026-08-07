@@ -28,6 +28,22 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    const legacyPages: Record<string, string> = {
+      "/": "/legacy/index.html",
+      "/index.html": "/legacy/index.html",
+      "/chunks": "/legacy/chunks.html",
+      "/chunks.html": "/legacy/chunks.html",
+      "/doc": "/legacy/doc.html",
+      "/doc.html": "/legacy/doc.html",
+      "/chat": "/legacy/chat.html",
+      "/chat.html": "/legacy/chat.html",
+    };
+    const legacyPage = legacyPages[url.pathname];
+    if (request.method === "GET" && legacyPage) {
+      const assetUrl = new URL(legacyPage, request.url);
+      return env.ASSETS.fetch(new Request(assetUrl, request));
+    }
+
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {

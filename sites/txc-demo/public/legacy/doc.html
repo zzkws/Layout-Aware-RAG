@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>文档目录树 — TXC Evidence RAG</title>
+<style>
+:root { --red:#d62728; --ink:#1d2129; --muted:#667085; --line:#e4e7ec;
+        --bg:#f7f8fa; --card:#fff; --green:#1a7f43; }
+*    { box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,'Microsoft YaHei',sans-serif;
+       margin:0; background:var(--bg); color:var(--ink); line-height:1.55; }
+.wrap{ max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+h1   { font-size:24px; margin:6px 0 2px; }
+h1 .accent{ color:var(--red); }
+.sub { color:var(--muted); font-size:14px; margin-bottom:18px; }
+.sub a{ color:var(--red); text-decoration:none; }
+.toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+       padding:10px 0 14px; border-bottom:1px solid var(--line); }
+select{ font-size:14px; padding:8px 12px; border:1.5px solid var(--line);
+       border-radius:8px; outline:none; background:#fff; min-width:340px; }
+select:focus{ border-color:var(--red); }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px;
+       padding:14px 18px; margin-top:14px; }
+.card .meta{ font-size:12.5px; color:var(--muted);
+       font-family:Consolas,monospace; }
+/* 目录树 */
+details.node{ margin:6px 0 6px 0; border-left:2px solid var(--line);
+       padding-left:14px; }
+details.node > summary{ cursor:pointer; list-style:none; display:flex;
+       gap:8px; align-items:center; padding:4px 6px; border-radius:6px;
+       font-size:15px; font-weight:600; }
+details.node > summary:hover{ background:#f0f2f5; }
+details.node > summary::before{ content:'▸'; color:var(--red);
+       transition:transform .15s; }
+details.node[open] > summary::before{ transform:rotate(90deg); }
+.chip { background:#eef2f7; border-radius:6px; padding:1px 8px;
+       font-family:Consolas,monospace; font-size:11.5px; font-weight:400; }
+.chip.n{ background:#fde8e8; color:#a61b1b; }
+/* chunk 卡（树内紧凑形态） */
+details.chunk{ background:var(--card); border:1px solid var(--line);
+       border-radius:8px; margin:6px 0; }
+details.chunk > summary{ cursor:pointer; list-style:none; display:flex;
+       gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px;
+       font-size:13.5px; }
+details.chunk > summary:hover{ background:#fafbfc; }
+details.chunk > summary::before{ content:'▢'; color:var(--muted); }
+details.chunk[open] > summary::before{ content:'▣'; color:var(--red); }
+.body { padding:0 12px 12px; }
+.desc { background:#eef6ff; border-radius:6px; padding:9px 12px; margin-top:6px;
+       font-size:13.5px; }
+.snip { color:#555; font-size:12px; font-family:Consolas,monospace;
+       background:#f4f4f4; border-radius:6px; padding:7px 10px; margin-top:8px;
+       max-height:88px; overflow:auto; }
+.kw span{ display:inline-block; background:#f0faf4; color:var(--green);
+       border-radius:5px; padding:1px 8px; font-size:12px; margin:6px 4px 0 0; }
+.imgs { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.imgs img{ max-height:300px; max-width:100%; border:1px solid var(--line);
+       border-radius:6px; cursor:zoom-in; }
+.empty{ color:var(--muted); padding:40px; text-align:center; }
+</style>
+</head>
+<body>
+<script src="/legacy-adapter.js"></script>
+<div class="wrap">
+
+<h1>文档 <span class="accent">目录树</span></h1>
+<div class="sub">每个 chunk 挂在它的 toc_path 节点下 ·
+<a href="/">← 检索演示</a> · <a href="/chunks">chunk 浏览</a></div>
+
+<div class="toolbar">
+  <select id="fDoc" onchange="loadDoc(this.value)"></select>
+  <span class="chip" id="docMeta"></span>
+</div>
+
+<div class="card" id="docCard" style="display:none"></div>
+<div id="tree"></div>
+
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function init(){
+  const s = await (await fetch('/api/stats')).json();
+  const docs = s.docs.map(d=>d.doc_id);
+  $('fDoc').innerHTML = docs.map(d=>{
+    const info = s.docs.find(x=>x.doc_id===d);
+    return `<option value="${esc(d)}">${esc(d)} — ${esc(info.title||'')}</option>`;
+  }).join('');
+  const want = new URLSearchParams(location.search).get('doc');
+  const pick = docs.includes(want) ? want : docs[0];
+  $('fDoc').value = pick;
+  loadDoc(pick);
+}
+
+function buildTree(toc){
+  // toc: [{level,title,page}] -> 嵌套树，每节点带全路径 path
+  const root = {title:'(root)', path:'', children:[], chunks:[], level:0};
+  const stack = [root];
+  for(const t of toc){
+    while(stack.length > 1 && stack[stack.length-1].level >= t.level)
+      stack.pop();
+    const parent = stack[stack.length-1];
+    const node = {title:t.title, page:t.page, level:t.level,
+                  path: parent.path ? parent.path+' > '+t.title : t.title,
+                  children:[], chunks:[]};
+    parent.children.push(node);
+    stack.push(node);
+  }
+  return root;
+}
+
+function attach(root, chunks){
+  const byPath = new Map();
+  (function walk(n){ if(n.path) byPath.set(n.path, n);
+                     n.children.forEach(walk); })(root);
+  for(const c of chunks){
+    let p = c.toc_path, node = null;
+    while(p && !(node = byPath.get(p)))           // 最长前缀回退
+      p = p.includes(' > ') ? p.slice(0, p.lastIndexOf(' > ')) : '';
+    (node || root.children[0] || root).chunks.push(c);
+  }
+}
+
+function chunkCard(c){
+  return `<details class="chunk">
+    <summary><span class="chip n">${esc(c.block_type)}</span>
+      <b>${esc(c.section_title || c.chunk_id)}</b>
+      <span class="chip">p${c.page}</span>
+      <span class="chip">${c.n_elements} 元素</span>
+      <span class="chip">${esc(c.chunk_id)}</span></summary>
+    <div class="body">
+      <div class="imgs">${(c.merged_image ? [c.merged_image] : c.crop_images).map(p=>
+        `<a href="/data/${p}" target="_blank"><img src="/data/${p}" loading="lazy"></a>`).join('')}</div>
+      <div class="desc">${esc(c.description)}</div>
+      ${c.native_text ? `<div class="snip">${esc(c.native_text)}</div>` : ''}
+      ${c.keywords.length ? `<div class="kw">${c.keywords.map(k=>
+        `<span>${esc(k)}</span>`).join('')}</div>` : ''}
+    </div></details>`;
+}
+
+function nodeHtml(n){
+  const total = countChunks(n);
+  return `<details class="node" open>
+    <summary>${esc(n.title)}
+      ${n.page ? `<span class="chip">p${n.page}</span>` : ''}
+      ${total ? `<span class="chip n">${total} chunk${total>1?'s':''}</span>` : ''}
+    </summary>
+    ${n.chunks.map(chunkCard).join('')}
+    ${n.children.map(nodeHtml).join('')}
+  </details>`;
+}
+
+function countChunks(n){
+  return n.chunks.length + n.children.reduce((s,c)=>s+countChunks(c), 0);
+}
+
+async function loadDoc(docId){
+  history.replaceState(null, '', '?doc=' + encodeURIComponent(docId));
+  $('tree').innerHTML = '<div class="empty">加载中…</div>';
+  const d = await (await fetch('/api/doc?id=' + encodeURIComponent(docId))).json();
+  if(d.error){ $('tree').innerHTML = `<div class="empty">${esc(d.error)}</div>`; return; }
+  const card = d.doc_card || {};
+  $('docMeta').textContent = `${d.chunks.length} chunks`;
+  $('docCard').style.display = '';
+  $('docCard').innerHTML = `<b>${esc(card.doc_name || docId)}</b>
+    <span class="chip">${esc(card.product_type||'')}</span>
+    <span class="chip">${esc(card.frequency_range||'')}</span>
+    <span class="chip">${esc(card.package_size_mm||'')} mm</span>
+    <div class="meta" style="margin-top:4px">${esc(card.summary||'')}</div>
+    <div class="meta">${esc(d.source_pdf)}</div>`;
+  const root = buildTree(card.toc || []);
+  attach(root, d.chunks);
+  $('tree').innerHTML = root.children.length
+    ? root.children.map(nodeHtml).join('')
+    : '<div class="empty">该文档没有目录数据</div>';
+}
+
+init();
+</script>
+</body>
+</html>

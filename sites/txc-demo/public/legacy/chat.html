@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>模型对话 — Evidence RAG</title>
+<style>
+:root { --red:#d62728; --ink:#1d2129; --muted:#667085; --line:#e4e7ec;
+        --bg:#f7f8fa; --card:#fff; --green:#1a7f43; }
+*    { box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,'Microsoft YaHei',sans-serif;
+       margin:0; background:var(--bg); color:var(--ink); line-height:1.6;
+       display:flex; flex-direction:column; height:100vh; }
+.top { max-width:900px; width:100%; margin:0 auto; padding:18px 20px 8px; }
+h1   { font-size:21px; margin:0 0 2px; }
+h1 .accent{ color:var(--red); }
+.sub { color:var(--muted); font-size:13px; }
+.sub a{ color:var(--red); text-decoration:none; }
+.badge{ background:#f0faf4; color:var(--green); border-radius:6px;
+       padding:1px 8px; font-size:12px; font-family:Consolas,monospace; }
+#log { flex:1; overflow-y:auto; }
+.inner{ max-width:900px; margin:0 auto; padding:10px 20px 16px; }
+.msg { display:flex; margin:10px 0; }
+.msg.user{ justify-content:flex-end; }
+.bubble{ max-width:78%; padding:10px 14px; border-radius:12px; font-size:14.5px;
+       white-space:pre-wrap; word-break:break-word; }
+.user .bubble{ background:var(--red); color:#fff; border-bottom-right-radius:4px; }
+.bot .bubble{ background:var(--card); border:1px solid var(--line);
+       border-bottom-left-radius:4px; }
+.bot .bubble b{ color:#a61b1b; }
+.bot .bubble code{ background:#f4f4f4; border-radius:4px; padding:0 4px;
+       font-family:Consolas,monospace; font-size:13px; }
+.cursor::after{ content:'▌'; color:var(--red); animation:bl .8s infinite; }
+@keyframes bl{ 50%{opacity:0;} }
+.bar { border-top:1px solid var(--line); background:var(--bg); }
+.barin{ max-width:900px; margin:0 auto; padding:12px 20px 18px; display:flex;
+       gap:10px; }
+textarea{ flex:1; font-size:15px; padding:10px 14px; border:1.5px solid var(--line);
+       border-radius:10px; outline:none; font-family:inherit; resize:none;
+       height:52px; }
+textarea:focus{ border-color:var(--red); }
+button{ background:var(--red); color:#fff; border:none; border-radius:10px;
+       padding:0 22px; font-size:15px; cursor:pointer; }
+button:disabled{ background:#ccc; cursor:wait; }
+button.ghost{ background:#fff; color:var(--muted); border:1.5px solid var(--line);
+       font-size:13px; }
+.hint{ max-width:900px; margin:0 auto; padding:0 20px 10px; font-size:12.5px;
+       color:var(--muted); }
+.hint a{ color:var(--red); cursor:pointer; text-decoration:none; }
+</style>
+</head>
+<body>
+<script src="/legacy-adapter.js"></script>
+
+<div class="top">
+  <h1><span class="accent">静态证据</span>对话展示</h1>
+  <div class="sub"><span class="badge">公开静态快照 · 无 API Key · 无云端调用</span>
+   · <a href="/">← 检索演示</a> · <a href="/chunks">chunk 浏览</a> ·
+   <a href="/doc">文档目录树</a></div>
+</div>
+
+<div id="log"><div class="inner" id="msgs"></div></div>
+
+<div class="hint">试一试：
+  <a onclick="ask('TCXO和OCXO在原理和应用上有什么区别？')">TCXO vs OCXO</a> ·
+  <a onclick="ask('晶振的负载电容CL对频率有什么影响，怎么选？')">负载电容怎么选</a> ·
+  <a onclick="ask('相位噪声-150dBc/Hz@1kHz是什么水平？')">相位噪声水平</a></div>
+
+<div class="bar"><div class="barin">
+  <textarea id="input" placeholder="输入问题以查看静态证据摘要，Enter 发送，Shift+Enter 换行"
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"></textarea>
+  <button id="sendBtn" onclick="send()">发送</button>
+  <button class="ghost" onclick="clearAll()">清空</button>
+</div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const md = s => esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+                      .replace(/`([^`]+)`/g,'<code>$1</code>')
+                      .replace(/^[\*\-]\s+/gm,'• ');
+let history = [];   // [{role, content}]
+
+function addBubble(role, html, cursor){
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role==='user'?'user':'bot');
+  div.innerHTML = `<div class="bubble${cursor?' cursor':''}">${html}</div>`;
+  $('msgs').appendChild(div);
+  $('log').scrollTop = $('log').scrollHeight;
+  return div.firstChild;
+}
+
+function ask(q){ $('input').value = q; send(); }
+
+async function send(){
+  const text = $('input').value.trim();
+  if(!text || $('sendBtn').disabled) return;
+  $('input').value = '';
+  $('sendBtn').disabled = true;
+  history.push({role:'user', content:text});
+  addBubble('user', esc(text));
+  const bubble = addBubble('bot', '', true);
+  let full = '';
+  try{
+    const res = await fetch('/api/chat', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:history})});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', finished = false;
+    while(!finished){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, {stream:true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for(const p of parts){
+        const line = p.trim();
+        if(!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if(data === '[DONE]'){ finished = true; break; }  // 不等服务端关连接
+        try{
+          const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+          if(delta){
+            full += delta;
+            bubble.innerHTML = md(full);
+            $('log').scrollTop = $('log').scrollHeight;
+          }
+        }catch(e){}
+      }
+    }
+    try{ reader.cancel(); }catch(e){}
+    history.push({role:'assistant', content:full});
+  }catch(e){
+    bubble.innerHTML = `<span style="color:#b42318">出错：${esc(e.message)}</span>`;
+    history.pop();   // 回滚本轮 user 消息
+  }
+  bubble.classList.remove('cursor');
+  $('sendBtn').disabled = false;
+  $('input').focus();
+}
+
+function clearAll(){ history = []; $('msgs').innerHTML = ''; $('input').focus(); }
+</script>
+</body>
+</html>

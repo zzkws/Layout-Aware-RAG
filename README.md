@@ -24,7 +24,9 @@ Evidence RAG Pilot is a public demonstration of my document-AI and RAG engineeri
 | TXC | 108 | 226 | 875 | [Open the TXC demo](https://evidence-rag-txc.zzkws.chatgpt.site) |
 | TKD | 74 | 112 | 547 | [Open the TKD demo](https://evidence-rag-tkd.zzkws.chatgpt.site) |
 
-The sites are interactive technical exhibits: search, inspect an evidence chunk, then follow its page geometry and pipeline role. No API key or GPU is required.
+The public deployments preserve the structure and visual design of the original TXC/TKD demos: corpus overview, search results, chunk browser, document tree, and evidence-dialog page. They read versioned static snapshots only; no Python service, API key, GPU, or cloud model is required.
+
+公开部署保留原始 TXC/TKD Demo 的页面结构与视觉：语料概览、检索结果、Chunk 浏览、文档目录树和证据对话页。站点只读取随版本发布的静态快照，不依赖 Python 服务、API Key、GPU 或云端模型。
 
 ## Architecture / 技术原理
 

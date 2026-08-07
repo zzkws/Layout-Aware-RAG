@@ -48,9 +48,13 @@ flowchart LR
 
 | Corpus | Indexed documents | Pages | Chunks | Public site mode |
 |---|---:|---:|---:|---|
-| TXC | 108 | 226 | 875 | Live browser BM25 + evidence snapshots |
-| TKD | 74 | 112 | 547 | Live browser BM25 + evidence snapshots |
+| TXC | 108 | 226 | 875 | Original demo UI + static snapshot |
+| TKD | 74 | 112 | 547 | Original demo UI + static snapshot |
 | Total | 182 | 338 | 1,422 | No visitor model key |
+
+The public deployments retain the original four-page demo structure (`/`, `/chunks`, `/doc`, and `/chat`). All visible corpus data and evidence examples come from versioned static exports. Search and evidence-summary interactions run locally against those files and are not presented as live dense/RRF or cloud-model inference.
+
+公开部署保留原始四页 Demo 结构（`/`、`/chunks`、`/doc`、`/chat`）。页面展示的语料数据和证据示例均来自版本化静态导出；检索与证据摘要只在本地读取这些文件，不冒充在线 dense/RRF 或云端模型推理。
 
 Retrieval baseline definitions:
 
