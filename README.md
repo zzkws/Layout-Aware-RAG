@@ -1,34 +1,33 @@
 # Evidence RAG Pilot
 
-**A traceable, page-native RAG prototype for engineering datasheets.**
-**面向工程数据手册的可追溯、版面级 RAG 技术原型。**
+**A page-native, traceable RAG design prototype for engineering datasheets.**
+**面向工程数据手册的版面级、可追溯 RAG 技术设计原型。**
 
-Evidence RAG Pilot is a public demonstration of my document-AI and RAG engineering work. It is designed to make the pipeline inspectable: a retrieved claim can be traced to a document, page, PDF bounding box, native text, and evidence image.
+Evidence RAG Pilot is a portfolio project for showing how I designed and implemented an inspectable document-RAG pipeline. Instead of reducing a PDF to detached token windows, the system keeps document identity, page number, PDF coordinates, native text, section context, and evidence images together.
 
-这个项目主要用于展示我的文档 AI 与 RAG 工程设计。它不把 PDF 简化为脱离版面的 token 片段，而是让检索结果保留文档、页码、PDF 坐标、原文和证据图，从而可以检查“答案依据到底在哪里”。
+这个项目聚焦展示我的文档 AI 与 RAG 技术设计。系统不把 PDF 简化为脱离版面的文本切片，而是让文档、页码、PDF 坐标、原文、章节上下文和证据图片始终保持关联。
 
-> This is a technical prototype and portfolio project, not a claim of state-of-the-art performance or superiority over Pixel RAG or other systems. The published metrics cover retrieval only; end-to-end answer quality has not yet been benchmarked.
+> **Evaluation status / 测评状态：** This project has not undergone a formal quantitative evaluation. The current release demonstrates the design, implementation, and qualitative experience; it does not claim benchmark accuracy, SOTA performance, or superiority over Pixel RAG or other systems.
+> 本项目尚未进行正式的定量测评。当前版本只展示技术设计、工程实现和体验效果，不声明基准准确率、SOTA 表现或优于 Pixel RAG 等其他系统。
 
-## What the demo proves / 演示重点
+## Demos / 在线演示
 
-- **Page-native chunks:** tables, figures, captions, drawings, and text regions remain tied to page geometry.
-- **Traceable evidence:** every result carries page, table-of-contents path, PDF-space boxes, text, and a merged evidence image.
-- **Hybrid retrieval:** the local pipeline combines multilingual dense retrieval with model-number-aware BM25 through reciprocal-rank fusion (RRF).
-- **Reusable evidence API:** MCP tools expose evidence packages without coupling downstream agents to the indexing implementation.
-- **Honest public deployment:** the two public sites run deterministic BM25 in the browser; they do not pretend to run the full Python, embedding, or multimodal generation stack.
-
-## Public demos / 在线演示
-
-| Corpus | Documents | Pages | Chunks | Demo |
+| Corpus | Documents | Pages | Page-native chunks | Demo |
 |---|---:|---:|---:|---|
-| TXC | 108 | 226 | 875 | [Open the TXC demo](https://evidence-rag-txc.zzkws.chatgpt.site) |
-| TKD | 74 | 112 | 547 | [Open the TKD demo](https://evidence-rag-tkd.zzkws.chatgpt.site) |
+| TXC | 108 | 226 | 875 | [Open TXC demo](https://evidence-rag-txc.zzkws.chatgpt.site) |
+| TKD | 74 | 112 | 547 | [Open TKD demo](https://evidence-rag-tkd.zzkws.chatgpt.site) |
 
-The public deployments preserve the structure and visual design of the original TXC/TKD demos: corpus overview, search results, chunk browser, document tree, and evidence-dialog page. They read versioned static snapshots only; no Python service, API key, GPU, or cloud model is required.
+The public sites preserve the original demo structure: corpus overview, search-result presentation, chunk browser, document tree, and evidence-dialog page. They read versioned static snapshots and require no Python service, GPU, API key, or cloud-model call.
 
-公开部署保留原始 TXC/TKD Demo 的页面结构与视觉：语料概览、检索结果、Chunk 浏览、文档目录树和证据对话页。站点只读取随版本发布的静态快照，不依赖 Python 服务、API Key、GPU 或云端模型。
+公开站保留原始 Demo 的页面结构：语料概览、检索结果展示、Chunk 浏览、文档目录树和证据对话页。站点读取版本化静态快照，不需要 Python 服务、GPU、API Key 或云端模型调用。
 
-## Architecture / 技术原理
+## Design focus / 技术设计重点
+
+- **Page-native chunks / 版面级切块** — tables, figures, captions, drawings, and text regions remain tied to their original page geometry.
+- **Traceable evidence / 可追溯证据** — a result can return to its document, page, TOC path, PDF bounding boxes, native text, and merged evidence image.
+- **Hybrid retrieval / 混合检索** — the local pipeline combines multilingual dense retrieval with model-number-aware BM25 through reciprocal-rank fusion (RRF).
+- **Stable evidence contract / 稳定证据契约** — retrieval and generation models can change without changing the downstream evidence interface.
+- **Reusable MCP interface / 可复用 MCP 接口** — agents can request evidence packages without depending on the internal indexing implementation.
 
 ```mermaid
 flowchart LR
@@ -39,15 +38,15 @@ flowchart LR
     D --> F["Model-aware BM25"]
     E --> G["RRF fusion"]
     F --> G
-    G --> H["Evidence package: page + bbox + image"]
+    G --> H["Evidence package: document + page + bbox + image"]
     H --> I["Optional answer model"]
 ```
 
-The central interface is the **evidence package**, not a model response. Retrieval and generation can change while the traceability contract stays stable.
+The central product interface is the **evidence package**, not an opaque model response. Its fields remain inspectable even when layout, embedding, ranking, or answer models are replaced.
 
-核心接口是**证据包**而不是某个模型的答案。检索模型或生成模型可以替换，但证据的文档、页码、坐标、原文和图片契约保持稳定。
+核心产品接口是**证据包**，而不是不可检查的模型回答。即使版面模型、Embedding、排序或生成模型被替换，证据字段仍保持可检查。
 
-## Quick start / 快速开始
+## Local pipeline / 本地完整管线
 
 Python 3.11–3.12 is supported.
 
@@ -55,18 +54,10 @@ Python 3.11–3.12 is supported.
 git clone https://github.com/zzkws/evidence-rag-pilot.git
 cd evidence-rag-pilot
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
 pip install -e ".[embedding,mcp]"
 ```
 
-Download the public data snapshot after `v0.1.0` is published:
-
-```bash
-gh release download v0.1.0 --repo zzkws/evidence-rag-pilot --pattern "*.zip" --pattern "SHA256SUMS.txt"
-```
-
-Extract either corpus to `corpora/txc/data` or `corpora/tkd/data`, then run retrieval:
+Download the full public corpus snapshot from [`v0.1.0`](https://github.com/zzkws/evidence-rag-pilot/releases/tag/v0.1.0), restore it under `corpora/txc` or `corpora/tkd`, then select a corpus with `RAG_CORPUS`.
 
 ```bash
 RAG_CORPUS=tkd python -m pipeline.search "32.768 kHz load capacitance"
@@ -79,54 +70,21 @@ $env:RAG_CORPUS = "tkd"
 python -m pipeline.search "32.768 kHz load capacitance"
 ```
 
-The repository intentionally excludes model weights and full generated data from Git history. Release archives include SHA-256 checksums; model weights are downloaded from their official sources.
-
-## Operating profiles / 模型与硬件需求
-
-| Profile | Retrieval | Generation | Practical requirement |
-|---|---|---|---|
-| Public Sites | Browser BM25 | Reviewed static examples | No GPU, no API key |
-| Local lite | BGE-small or Harrier | Optional/off | CPU, 8–16 GB RAM |
-| Full pipeline | Harrier 0.6B + BM25 + RRF | OpenAI-compatible multimodal model | GPU recommended; for a 12B BF16 service, plan for at least 32 GB and preferably 48 GB VRAM |
-
-Offline page grouping and description generation use `GEMINI_API_KEY`. Online answer generation is optional and configured through generic OpenAI-compatible environment variables; retrieval works without it. See [.env.example](.env.example).
-
-## Reproducible baseline / 可复现基线
-
-The current TKD seed set contains 12 questions; 10 have non-empty gold evidence. The saved dense+BM25/RRF baseline is:
-
-| Metric | Result |
-|---|---:|
-| Recall@5 | 0.6583 |
-| Recall@15 | 0.8917 |
-| MRR@15 | 0.6167 |
-
-These values are regression baselines, not production acceptance thresholds. The project does **not** publish an answer-accuracy claim because the existing answer-result files are empty.
-
-Re-run:
-
-```bash
-python -m tools.evaluate_retrieval \
-  --corpus tkd --data-dir corpora/tkd/data \
-  --input eval/seed_eval.jsonl \
-  --output eval/retrieval_baseline.json
-```
-
-## Pipeline / 完整处理流程
+### Processing stages / 处理阶段
 
 1. `pipeline.render` — render PDF pages while preserving PDF-point coordinates.
-2. `pipeline.layout` — detect and de-duplicate page elements with DocLayout-YOLO.
+2. `pipeline.layout` — detect and de-duplicate tables, figures, captions, and text regions.
 3. `pipeline.extract_text` — recover the born-digital text layer per element.
-4. `pipeline.vlm_blocks` — group elements, build descriptions, and assign TOC paths.
-5. `pipeline.merge_crops` — create one readable evidence image per chunk.
+4. `pipeline.vlm_blocks` — group elements and attach descriptions and TOC paths.
+5. `pipeline.merge_crops` — create a readable evidence image for each chunk.
 6. `pipeline.index_build` — build dense and BM25 indexes.
-7. `pipeline.search` — retrieve and fuse ranks with RRF.
+7. `pipeline.search` — retrieve and fuse ranked results with RRF.
 
-Every stage supports targeted document runs; `run_full_corpus.py` orchestrates resumable full-corpus processing.
+`run_full_corpus.py` orchestrates resumable corpus processing. Offline VLM enrichment uses `GEMINI_API_KEY`; answer generation is optional and configured through generic OpenAI-compatible environment variables. Retrieval can run without an answer model.
 
 ## Evidence MCP
 
-The MCP server keeps its small public contract:
+The MCP server exposes a small evidence-oriented interface:
 
 - `build_evidence_package`
 - `get_chunk`
@@ -137,40 +95,26 @@ pip install -e ".[embedding,mcp]"
 python evidence_mcp_server.py
 ```
 
-## Repository map
+## Repository map / 仓库结构
 
 ```text
-common/                 tokenization, drawing, embedding adapter
-pipeline/               PDF-to-index processing stages
-tools/                  public export, evaluation, release packaging
-tests/                  unit tests for retrieval and public-data contracts
-sites/txc-demo/         TXC public technical demo
-sites/tkd-demo/         TKD public technical demo
-docs/project-analysis.md bilingual technical analysis and model report
-eval/                   seed questions and reproducible retrieval baseline
+common/                 tokenization, drawing, and embedding adapters
+pipeline/               PDF-to-evidence-index processing stages
+webapp/                 original local demo interface and Python server
+sites/txc-demo/         static public deployment of the TXC demo
+sites/tkd-demo/         static public deployment of the TKD demo
+tools/                  public export, safety checks, and release packaging
+tests/                  core behavior and public-data contract tests
 ```
 
-## Known limits / 已知边界
+## Current boundaries / 当前边界
 
 - Scanned PDFs do not yet use a dedicated OCR engine.
-- Tables are not cell-structured and continued tables are not automatically joined across pages.
-- The evaluation set is small and TKD-focused.
-- The public sites run BM25 only; full dense+BM25/RRF remains a local pipeline.
+- Tables are not converted into a cell-level structured representation.
+- Continued tables are not automatically joined across pages.
+- Public Sites display static snapshots; dense retrieval, RRF, ingestion, and optional answer generation remain local-pipeline capabilities.
 - Datasheet redistribution rights remain separate from the Apache-2.0 code license.
 
-Read the full [bilingual technical analysis](docs/project-analysis.md), [data notice](DATA_NOTICE.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
+## License and data
 
-## Contributing and security
-
-Contributions are welcome through focused pull requests. See [CONTRIBUTING.md](CONTRIBUTING.md). Please report sensitive issues according to [SECURITY.md](SECURITY.md) rather than opening a public issue.
-
-## License and citation
-
-Original source code is licensed under [Apache-2.0](LICENSE). Data and third-party artifacts retain their own terms; see [DATA_NOTICE.md](DATA_NOTICE.md).
-
-If this prototype helps your work, cite the repository and release:
-
-```text
-zzkws. Evidence RAG Pilot: a traceable, page-native RAG prototype for engineering datasheets. v0.1.0.
-https://github.com/zzkws/evidence-rag-pilot
-```
+Original source code is licensed under [Apache-2.0](LICENSE). Dataset rights and third-party artifacts retain their own terms; see [DATA_NOTICE.md](DATA_NOTICE.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Security reports should follow [SECURITY.md](SECURITY.md).
