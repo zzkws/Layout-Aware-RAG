@@ -1,9 +1,11 @@
 """Stage 6: 双路索引构建。
 
-dense 路: fastembed bge-small-en-v1.5（本地缓存，离线）
-          embed_text = description + native_text（截断至 1500 字符）
+dense 路: config.EMBED_MODEL（默认 sentence-transformers 后端；fastembed 为备选）
+          embed_text = toc_path + section_title + description + native_text
+          （按此顺序拼接后截断至 1500 字符：先"在哪/是什么"，后正文）
 sparse 路: 自研 BM25 + 型号感知分词器（common/tokenize.py）
-          fts_text = section_title + native_text + description + keywords
+          fts_text = section_title + toc_path + native_text + description
+                     + keywords + 文档卡词
 
 产物: index/chunks.jsonl（chunk 元数据）、index/dense.npy、index/bm25.json
 

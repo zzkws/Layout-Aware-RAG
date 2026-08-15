@@ -1,10 +1,27 @@
 cff-version: 1.2.0
-message: "If you use this technical prototype, please cite it as below."
 title: "Evidence RAG Pilot"
-abstract: "A traceable, page-native RAG prototype for engineering datasheets."
+message: "If you use this technical prototype, please cite it as below."
+type: software
+abstract: >-
+  A page-native, traceable retrieval-augmented generation prototype for
+  engineering datasheets. The system preserves document identity, page number,
+  PDF coordinates, native text, section context, and evidence images as a single
+  inspectable evidence package, rather than reducing pages to detached token
+  windows.
 authors:
-  - name: "zzkws"
-version: 0.1.0
+  - family-names: "Zhou"
+    given-names: "Zikang"
+    alias: "zzkws"
+version: 0.1.2
 date-released: 2026-08-07
 license: Apache-2.0
 repository-code: "https://github.com/zzkws/evidence-rag-pilot"
+url: "https://evidence-rag-txc.zzkws.chatgpt.site"
+keywords:
+  - retrieval-augmented generation
+  - document AI
+  - information retrieval
+  - document layout analysis
+  - multimodal retrieval
+  - evidence traceability
+  - engineering datasheets

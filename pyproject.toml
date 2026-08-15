@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evidence-rag-pilot"
-version = "0.1.0"
-description = "Evidence-first multimodal RAG for engineering datasheets"
+version = "0.1.2"
+description = "Traceable, page-native RAG prototype for engineering datasheets"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "Apache-2.0" }
-authors = [{ name = "zzkws" }]
+authors = [{ name = "Zikang Zhou" }]
 dependencies = [
   "numpy>=1.26,<3",
   "Pillow>=10,<13",
@@ -31,6 +31,8 @@ dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
 [project.urls]
 Homepage = "https://github.com/zzkws/evidence-rag-pilot"
 Repository = "https://github.com/zzkws/evidence-rag-pilot"
+Documentation = "https://github.com/zzkws/evidence-rag-pilot/tree/main/docs"
+Demo = "https://evidence-rag-txc.zzkws.chatgpt.site"
 Issues = "https://github.com/zzkws/evidence-rag-pilot/issues"
 
 [tool.setuptools]

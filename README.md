@@ -1,5 +1,10 @@
 # Evidence RAG Pilot
 
+[![CI](https://github.com/zzkws/evidence-rag-pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/zzkws/evidence-rag-pilot/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zzkws/evidence-rag-pilot?sort=semver)](https://github.com/zzkws/evidence-rag-pilot/releases)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 **A page-native, traceable RAG design prototype for engineering datasheets.**
 **面向工程数据手册的版面级、可追溯 RAG 技术设计原型。**
 
@@ -7,8 +12,15 @@ Evidence RAG Pilot is a portfolio project for showing how I designed and impleme
 
 这个项目聚焦展示我的文档 AI 与 RAG 技术设计。系统不把 PDF 简化为脱离版面的文本切片，而是让文档、页码、PDF 坐标、原文、章节上下文和证据图片始终保持关联。
 
-> **Evaluation status / 测评状态：** This project has not undergone a formal quantitative evaluation. The current release demonstrates the design, implementation, and qualitative experience; it does not claim benchmark accuracy, SOTA performance, or superiority over Pixel RAG or other systems.
-> 本项目尚未进行正式的定量测评。当前版本只展示技术设计、工程实现和体验效果，不声明基准准确率、SOTA 表现或优于 Pixel RAG 等其他系统。
+> **Evaluation status / 测评状态：** This project has not undergone a formal quantitative evaluation. The current release demonstrates the design, implementation, and qualitative experience; it does not claim benchmark accuracy, SOTA performance, or superiority over Pixel RAG or other systems. The evaluation protocol — query strata, region-level annotation scheme, evidence-quality metrics, ablations, and threats to validity — is specified in advance in [`docs/EVALUATION.md`](docs/EVALUATION.md); it contains no results.
+> 本项目尚未进行正式的定量测评。当前版本只展示技术设计、工程实现和体验效果，不声明基准准确率、SOTA 表现或优于 Pixel RAG 等其他系统。评测协议（查询分层、区域级标注方案、证据质量指标、消融与效度威胁）已预先写入 [`docs/EVALUATION.md`](docs/EVALUATION.md)，其中不含任何结果。
+
+## Documentation / 文档
+
+| Document | Contents |
+|---|---|
+| [`docs/METHOD.md`](docs/METHOD.md) | Design decisions and the reasoning behind each — coordinate contract, layout de-duplication, page-native grouping, dual-path indexing, model-number-aware tokenization, rank fusion. |
+| [`docs/EVALUATION.md`](docs/EVALUATION.md) | Pre-registered evaluation protocol: task definition, query strata, annotation scheme, metrics, ablations, baselines, threats to validity. No results. |
 
 ## Demos / 在线演示
 
@@ -59,6 +71,10 @@ pip install -e ".[embedding,mcp]"
 
 Download the full public corpus snapshot from [`v0.1.0`](https://github.com/zzkws/evidence-rag-pilot/releases/tag/v0.1.0), restore it under `corpora/txc` or `corpora/tkd`, then select a corpus with `RAG_CORPUS`.
 
+`v0.1.0` is the corpus snapshot release and stays the canonical data reference; later tags are code-only. Pin data to this tag when reporting anything reproducible — retrieval results are not comparable across corpus revisions.
+
+`v0.1.0` 是语料快照 release，作为数据的固定引用点；之后的 tag 只含代码。报告任何需要复现的结果时都应固定到该 tag——跨语料修订版的检索结果不可比。
+
 ```bash
 RAG_CORPUS=tkd python -m pipeline.search "32.768 kHz load capacitance"
 ```
@@ -98,6 +114,7 @@ python evidence_mcp_server.py
 ## Repository map / 仓库结构
 
 ```text
+docs/                   method write-up and pre-registered evaluation protocol
 common/                 tokenization, drawing, and embedding adapters
 pipeline/               PDF-to-evidence-index processing stages
 webapp/                 original local demo interface and Python server
