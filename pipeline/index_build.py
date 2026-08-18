@@ -1,15 +1,19 @@
-"""Stage 6: 双路索引构建。
+"""Stage 6: dual-path index construction.
 
-dense 路: config.EMBED_MODEL（默认 sentence-transformers 后端；fastembed 为备选）
-          embed_text = toc_path + section_title + description + native_text
-          （按此顺序拼接后截断至 1500 字符：先"在哪/是什么"，后正文）
-sparse 路: 自研 BM25 + 型号感知分词器（common/tokenize.py）
-          fts_text = section_title + toc_path + native_text + description
-                     + keywords + 文档卡词
+Dense path : config.EMBED_MODEL (sentence-transformers by default, fastembed as
+             a fallback backend)
+             embed_text = toc_path + section_title + description + native_text
+             Concatenated in that order and truncated to 1500 characters, so
+             that "where it is" and "what it is" survive truncation and the raw
+             text is what gets cut.
+Sparse path: in-house BM25 over the part-number-aware tokenizer
+             (common/tokenize.py)
+             fts_text = section_title + toc_path + native_text + description
+                        + keywords + doc-card words
 
-产物: index/chunks.jsonl（chunk 元数据）、index/dense.npy、index/bm25.json
+Artifacts: index/chunks.jsonl (chunk metadata), index/dense.npy, index/bm25.json
 
-用法:
+Usage:
     python pipeline/index_build.py [--docs ...]
 """
 import argparse
@@ -35,7 +39,7 @@ def build_chunks(doc_ids) -> list[dict]:
                  if desc_file.exists() else {"doc_card": {}, "blocks": {}})
         card = descs["doc_card"]
         card_words = " ".join(str(v) for k, v in card.items()
-                              if k != "toc")  # toc 是结构化列表，不进词袋
+                              if k != "toc")  # toc is structured; keep it out of the bag
 
         for b in blocks["blocks"]:
             if not b["indexable"]:
@@ -47,8 +51,8 @@ def build_chunks(doc_ids) -> list[dict]:
             if not (native or description):
                 continue
             toc_path = b.get("toc_path", "")
-            # 目录管"在哪"(toc_path)，标题管"是什么"(section_title)，
-            # 然后才是语义概述和原文
+            # toc_path says where the content sits, section_title says what it
+            # is; only then the semantic summary and the raw text
             embed_text = "\n".join(filter(None, [
                 toc_path, b["section_title"], description,
                 native]))[:1500].strip()
@@ -82,7 +86,7 @@ def build_dense(chunks) -> np.ndarray:
 
 
 def build_bm25(chunks) -> dict:
-    """倒排索引 + 文档长度，BM25 打分在 search 时进行。"""
+    """Inverted index and document lengths. BM25 scoring happens at query time."""
     postings: dict[str, dict[int, int]] = {}
     doc_lens = []
     for i, c in enumerate(chunks):
@@ -102,7 +106,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--docs", nargs="*")
     ap.add_argument("--all", action="store_true",
-                    help="索引所有已完成 VLM 描述的文档")
+                    help="index every document that already has VLM descriptions")
     args = ap.parse_args()
     if args.all:
         doc_ids = sorted(p.stem for p in config.DESC_DIR.glob("*.json"))

@@ -1,9 +1,9 @@
-"""bbox 可视化工具：在页图上画元素框/板块框。"""
+"""Bounding-box visualization: draw element or chunk boxes onto a page image."""
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-# 每个类别一个固定颜色，元素级（DocLayout-YOLO 原始输出）
+# One fixed colour per class, at element level (raw DocLayout-YOLO output)
 ELEMENT_COLORS = {
     "title": "#e6194b",
     "plain_text": "#3cb44b",
@@ -16,7 +16,7 @@ ELEMENT_COLORS = {
     "isolate_formula": "#f032e6",
     "formula_caption": "#a9a9a9",
 }
-BLOCK_COLOR = "#d62728"  # 合并后大板块统一红色粗框
+BLOCK_COLOR = "#d62728"  # merged chunks share one thick red box
 
 
 def _font(size: int):
@@ -36,7 +36,7 @@ def draw_boxes(page_image: Path, boxes: list, out_path: Path,
     for i, b in enumerate(boxes):
         x0, y0, x1, y1 = b["bbox_px"]
         label = str(b.get(label_key, "?"))
-        if "color" in b:  # 调用方指定颜色（如同一 chunk 的成员框同色）
+        if "color" in b:  # caller-supplied colour, e.g. one colour per chunk
             color = b["color"]
         else:
             color = (
@@ -45,7 +45,7 @@ def draw_boxes(page_image: Path, boxes: list, out_path: Path,
                 else BLOCK_COLOR
             )
         drw.rectangle([x0, y0, x1, y1], outline=color, width=width)
-        if not label:  # 空 label 只画框不贴标签
+        if not label:  # empty label: draw the box without a tag
             continue
         tag = label if "tag" in b else f"{i}:{label}"
         if "conf" in b:

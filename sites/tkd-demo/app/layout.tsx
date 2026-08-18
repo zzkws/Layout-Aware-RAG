@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TKD Evidence RAG Demo",
-  description: "Original TKD Evidence RAG design demo using a static public corpus snapshot.",
+  title: "TKD Layout-Aware Retrieval Demo",
+  description: "Layout-aware retrieval demo over the TKD datasheet corpus, served from a static public snapshot.",
   icons: { icon: "/favicon.svg" },
 };
 

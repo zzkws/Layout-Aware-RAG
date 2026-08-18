@@ -1,13 +1,15 @@
-"""Stage ④.5: chunk 成员裁剪图合并（vlm_blocks 之后运行）。
+"""Stage 5: compose one evidence image per chunk (runs after vlm_blocks).
 
-每个可索引 chunk 的多张成员裁剪图，保持原始像素（同一 DPI 渲染下即同一
-PPI，不缩放），按阅读顺序自上而下拼接成一张图：画布宽 = 成员最大宽，
-窄图左对齐、右侧白色留白，成员之间 12px 白色分隔。
+The member crops of each indexable chunk are stacked top to bottom in reading
+order at native pixel size -- no rescaling, so every crop from one render shares
+a PPI. Canvas width is the widest member; narrower crops are left-aligned with
+white padding on the right, and members are separated by 12 px of white.
 
-产出按约定路径存放（webapp 证据分析按此约定直接取图，每 chunk 一张）：
+Output goes to a conventional path, one image per chunk, which the webapp reads
+directly:
     data/blocks/merged/{doc}/{block_id}.png
 
-用法:
+Usage:
     python pipeline/merge_crops.py [--docs 6u 7m ...] [--all]
 """
 import argparse
@@ -20,7 +22,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import config
 
-GAP = 12   # 成员之间的白色分隔（px）
+GAP = 12   # white separator between members, in px
 
 
 def merge_chunk_crops(doc_id: str) -> int:
@@ -42,7 +44,7 @@ def merge_chunk_crops(doc_id: str) -> int:
         canvas = Image.new("RGB", (width, height), "white")
         y = 0
         for im in imgs:
-            canvas.paste(im.convert("RGB"), (0, y))   # 左对齐，右侧留白
+            canvas.paste(im.convert("RGB"), (0, y))   # left-aligned, padded right
             y += im.height + GAP
         canvas.save(out_dir / f"{b['block_id']}.png")
         n += 1

@@ -1,12 +1,14 @@
-"""Stage 3: 按元素 bbox 从 PDF 文字层无损取文本。
+"""Stage 3: lossless text recovery from the PDF text layer, per element bbox.
 
-把文本回填进 layout/{doc}.json 每个元素的 native_text 字段，
-供 VLM 合并决策（vlm_blocks.py）使用。
+Text is written back into the native_text field of every element in
+layout/{doc}.json, where the stage-4 grouping pass (vlm_blocks.py) reads it.
 
-born-digital PDF 文字层裁取即 100% 准确；文字层为空的区域（嵌入图像/矢量
-曲线，如 7n_10pad 第 4 页的引脚表）native_text 为空，语义由 VLM description 补。
+On a born-digital PDF, clipping the text layer is exact. Regions backed by an
+embedded image or vector curves (for example the pin table on page 4 of
+7n_10pad) yield an empty native_text, and their semantics rest on the VLM
+description instead.
 
-用法:
+Usage:
     python pipeline/extract_text.py [--docs 6u 7m ...]
 """
 import argparse
@@ -22,7 +24,7 @@ import config
 
 def _clean(text: str) -> str:
     text = " ".join(text.split())
-    # 去掉私有区 bullet 字形（如 ）
+    # Drop private-use-area bullet glyphs
     return "".join(ch for ch in text if not 0xE000 <= ord(ch) <= 0xF8FF).strip()
 
 

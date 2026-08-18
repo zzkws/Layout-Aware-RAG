@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TXC Evidence RAG Demo",
-  description: "Original TXC Evidence RAG design demo using a static public corpus snapshot.",
+  title: "TXC Layout-Aware Retrieval Demo",
+  description: "Layout-aware retrieval demo over the TXC datasheet corpus, served from a static public snapshot.",
   icons: { icon: "/favicon.svg" },
 };
 
