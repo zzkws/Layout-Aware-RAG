@@ -2,11 +2,13 @@
 
 **Layout-Aware RAG for Engineering Datasheets**
 
-A RAG demo for documents where the layout carries the meaning. Instead of cutting
-pages into fixed-length token windows, it retrieves *page-native layout regions* —
-a table with its caption and footnote, a figure with its annotations — and every
-result comes back with the document, page, and PDF coordinates you need to check it
-against the original page.
+A retrieval-augmented generation pipeline for layout-bearing technical documents.
+The retrieval unit is a *page-native layout region* — a set of detected layout
+elements grouped as one reading unit, such as a table with its caption and
+footnote — rather than a fixed-length token window. Retrieval fuses a multilingual
+dense index with a part-number-aware BM25 index by reciprocal rank fusion, and each
+result carries document identity, page number, and PDF-point bounding boxes, giving
+region-level provenance back to the source page.
 
 [![CI](https://github.com/zzkws/Layout-Aware-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/zzkws/Layout-Aware-RAG/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/zzkws/Layout-Aware-RAG?sort=semver)](https://github.com/zzkws/Layout-Aware-RAG/releases)
@@ -19,8 +21,8 @@ Zikang Zhou · Xiamen University · 2026
 
 ## Live demos
 
-Two real datasheet corpora, searchable in the browser. No account, no API key, and
-nothing to install.
+Two datasheet corpora, searchable in the browser. No account, API key, or local
+installation is required.
 
 | Corpus | Documents | Pages | Chunks | |
 | :--- | ---: | ---: | ---: | :--- |
@@ -58,15 +60,16 @@ several hundred; running the pipeline locally produces an image for every hit.
 
 ## The problem
 
-Engineering datasheets are layout-bearing. A load-capacitance value means what it
-means because of the table row it sits in, the part-number column heading above it,
-and the note printed under the table. Flatten that page into 512-token windows and
-you destroy the structure that carried the meaning — and the reader's ability to
-check the answer.
+Engineering datasheets are layout-bearing documents: the semantics of a value
+depend on its position within the page structure. A load-capacitance figure is
+interpretable only in conjunction with the table row containing it, the part-number
+column heading above it, and the footnote printed beneath the table. Fixed-length
+token-window chunking discards that structure, and with it the provenance needed to
+verify a retrieved value against its source.
 
-So the retrieval unit here is not a token window. It is a group of detected layout
-elements that a human would read as one thing, and it keeps its page geometry all
-the way through to the result.
+The retrieval unit is therefore defined at the layout level: a set of detected
+elements constituting a single reading unit, which retains its page geometry
+through indexing and into the returned result.
 
 ---
 
@@ -110,27 +113,28 @@ block_type · section_title · toc_path
 native_text · description · crop_images[]
 ```
 
-You can replay any hit against the source PDF without trusting the system that
-produced it. And because the fields are stable, the layout detector, embedding
-model, fusion strategy, or answer model can all be swapped without breaking
-anything downstream — which is why the same contract serves the Python pipeline,
-the demo sites, and the MCP server without being reimplemented three times.
+Any hit can be replayed against the source PDF independently of the system that
+produced it. Because the field set is stable under component substitution — layout
+detector, embedding model, fusion strategy, or answer model — the same contract
+serves the Python pipeline, the demonstration sites, and the MCP server without
+being reimplemented for each.
 
 `bboxes_pdf` is a **list**, not a union rectangle: each member element keeps its own
 box and its own crop.
 
 ### Four decisions worth explaining
 
-**1. PDF points are the stored coordinate, pixels are derived.** `bbox_pdf` is
-authoritative; `bbox_px = bbox_pdf × dpi / 72` is used only for cropping. You can
-re-render at a different DPI without invalidating a single stored result.
+**1. PDF points are the stored coordinate; pixels are derived.** `bbox_pdf` is
+authoritative, while `bbox_px = bbox_pdf × dpi / 72` serves only cropping and
+visualization. Re-rendering the corpus at a different DPI therefore invalidates no
+stored result.
 
 **2. Duplicate boxes are resolved by area, not confidence.** YOLO often gives the
 box containing *more* content a *lower* score. In document `6u`, the complete
 `table_footnote` box scores 0.37 against 0.73 for a truncated one — ranking by
-confidence silently cuts off the start of the Note line, with no error and a
-result that still looks fine. Ranking by area keeps the box that preserves more of
-the source.
+confidence truncates the start of the Note line, and does so silently, since the
+truncated crop remains well-formed. Ranking by area retains the box preserving more
+of the source.
 
 **3. Part numbers are tokenized three ways.** A standard tokenizer splits
 `7M-26.000MAAJ-T` into `7 / M / 26 / 000 / MAAJ / T`, which defeats part-number

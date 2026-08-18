@@ -2,14 +2,15 @@ cff-version: 1.2.0
 message: "If you use this demo or its design, please cite it as below."
 title: "Layout-Aware-RAG: Layout-Aware Retrieval-Augmented Generation for Engineering Datasheets"
 abstract: >-
-  A RAG demo for documents where the layout carries the meaning. The unit of
-  retrieval is a page-native layout region -- a group of detected layout elements
-  read as one unit, such as a table with its caption and footnote -- rather than a
-  fixed-length token window. Document identity, page number, PDF-point bounding
-  boxes, native text, section path, and a rendered evidence image travel together,
-  so every result can be checked against the exact region of the exact page it came
-  from. Retrieval fuses a multilingual dense index with a part-number-aware BM25
-  index by Reciprocal Rank Fusion. Not quantitatively evaluated.
+  A retrieval-augmented generation pipeline for layout-bearing technical
+  documents. The retrieval unit is a page-native layout region -- a set of
+  detected layout elements grouped as one reading unit, such as a table with its
+  caption and footnote -- rather than a fixed-length token window. Document
+  identity, page number, PDF-point bounding boxes, native text, section path, and
+  a rendered evidence image are carried together, giving region-level provenance
+  back to the source page. Retrieval fuses a multilingual dense index with a
+  part-number-aware BM25 index by reciprocal rank fusion. Not quantitatively
+  evaluated.
 type: software
 license: Apache-2.0
 version: "0.1.2"
