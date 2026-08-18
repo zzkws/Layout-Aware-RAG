@@ -97,7 +97,7 @@ def export_bundle(corpus: str, data_dir: Path, out_dir: Path) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     corpus_payload = {
         "id": corpus,
-        "title": "TXC Layout-Aware Retrieval" if corpus == "txc" else "TKD Layout-Aware Retrieval",
+        "title": "TXC Layout-Aware RAG" if corpus == "txc" else "TKD Layout-Aware RAG",
         "manufacturer": corpus.upper(),
         "documents": len(document_rows),
         "chunks": len(public_chunks),

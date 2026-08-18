@@ -24,7 +24,7 @@ def _require_mcp():
 
 
 FastMCP = _require_mcp()
-mcp = FastMCP("layout-aware-retrieval")
+mcp = FastMCP("layout-aware-rag")
 
 
 @mcp.tool()

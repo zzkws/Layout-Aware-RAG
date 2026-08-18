@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TKD Layout-Aware Retrieval Demo",
-  description: "Layout-aware retrieval demo over the TKD datasheet corpus, served from a static public snapshot.",
+  title: "TKD Layout-Aware RAG Demo",
+  description: "Layout-aware RAG demo over the TKD datasheet corpus, served from a static public snapshot.",
   icons: { icon: "/favicon.svg" },
 };
 
