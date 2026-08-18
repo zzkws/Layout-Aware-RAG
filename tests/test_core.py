@@ -5,7 +5,9 @@ from pathlib import Path
 
 from common.tokenize import tokenize
 from evidence_service import EvidenceService
+from pipeline.layout import dedup_elements
 from pipeline.search import Index
+from pipeline.vlm_blocks import split_discontiguous
 from tools.export_site_data import export_bundle
 from tools.public_data import public_chunk, public_source_name
 
@@ -97,3 +99,75 @@ def test_site_export_is_compact_and_path_safe(tmp_path: Path):
     assert summary["documents"] == 1
     assert exported[0]["source_pdf"] == "pdf/d1.pdf"
     assert not any("C:" in path.read_text(encoding="utf-8") for path in out.glob("*.json"))
+
+
+def test_dedup_keeps_the_larger_box_even_at_lower_confidence():
+    """The 6u table_footnote case, pinned.
+
+    The complete box scores 0.37 and the truncated one 0.73. Ranking by
+    confidence keeps the truncated box and silently cuts off the start of the
+    Note line; ranking by area keeps the box that preserves more of the source.
+    This is the rule METHOD.md argues hardest for, so it is pinned here.
+    """
+    complete = {"label": "table_footnote", "conf": 0.37, "bbox_px": [100, 500, 900, 560]}
+    truncated = {"label": "table_footnote", "conf": 0.73, "bbox_px": [400, 500, 900, 560]}
+
+    survivors = dedup_elements([truncated, complete])
+
+    assert len(survivors) == 1
+    assert survivors[0]["bbox_px"] == complete["bbox_px"]
+    assert survivors[0]["conf"] == 0.37
+
+
+def test_dedup_preserves_cross_class_nesting():
+    """A plain_text annotation inside a figure is content, not a duplicate.
+
+    Resolving it is a grouping decision, so detection must leave it alone.
+    """
+    figure = {"label": "figure", "conf": 0.9, "bbox_px": [0, 0, 800, 800]}
+    annotation = {"label": "plain_text", "conf": 0.5, "bbox_px": [100, 100, 300, 160]}
+
+    survivors = dedup_elements([figure, annotation])
+
+    assert len(survivors) == 2
+    assert {s["label"] for s in survivors} == {"figure", "plain_text"}
+
+
+def test_dedup_drops_a_same_class_box_nested_in_a_larger_one():
+    outer = {"label": "table", "conf": 0.4, "bbox_px": [0, 0, 600, 400]}
+    inner = {"label": "table", "conf": 0.95, "bbox_px": [10, 10, 590, 390]}
+
+    survivors = dedup_elements([inner, outer])
+
+    assert len(survivors) == 1
+    assert survivors[0]["bbox_px"] == outer["bbox_px"]
+
+
+def test_header_and_footer_grouped_together_are_split_apart():
+    """The guard that stops one chunk from spanning a whole page."""
+    page_h = 1000.0
+    elems = [
+        {"bbox_px": [0, 10, 600, 40]},     # running header
+        {"bbox_px": [0, 950, 600, 985]},   # footer, far below
+    ]
+    groups = [{"elements": [0, 1], "description": "d", "keywords": ["k"]}]
+
+    out = split_discontiguous(groups, elems, page_h)
+
+    assert len(out) == 2
+    assert [g["elements"] for g in out] == [[0], [1]]
+
+
+def test_a_vertically_contiguous_group_is_left_alone():
+    page_h = 1000.0
+    elems = [
+        {"bbox_px": [0, 100, 600, 300]},   # table
+        {"bbox_px": [0, 305, 600, 340]},   # its footnote, directly beneath
+    ]
+    groups = [{"elements": [0, 1], "description": "d", "keywords": ["k"]}]
+
+    out = split_discontiguous(groups, elems, page_h)
+
+    assert len(out) == 1
+    assert out[0]["elements"] == [0, 1]
+    assert out[0]["description"] == "d"

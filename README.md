@@ -19,37 +19,37 @@ Zikang Zhou · Xiamen University · 2026
 
 ## Live demos
 
-Two real datasheet corpora, running in the browser. No signup, no API key, nothing
-to install.
+Two real datasheet corpora, searchable in the browser. No account, no API key, and
+nothing to install.
 
 | Corpus | Documents | Pages | Chunks | |
 | :--- | ---: | ---: | ---: | :--- |
 | **TXC** — crystals, oscillators, TCXO/VCXO/OCXO | 108 | 226 | 875 | **[▶ Open the TXC demo](https://evidence-rag-txc.zzkws.chatgpt.site)** |
 | **TKD** — crystals and oscillator modules | 74 | 112 | 547 | **[▶ Open the TKD demo](https://evidence-rag-tkd.zzkws.chatgpt.site)** |
 
-Each demo ships one-click example queries. Worth trying:
+Each demo ships one-click example queries. Representative cases:
 
-- A **part number**, whole or partial — `7M 26.000MHz load capacitance ESR`, or just
-  the fragment you remember. A standard tokenizer shreds these into `7 / M / 26 /
+- **Part number, whole or partial** — `7M 26.000MHz load capacitance ESR`, or only
+  the fragment a user recalls. A standard tokenizer splits these into `7 / M / 26 /
   000`; this one indexes them intact, as subfields, and as character 3-grams.
-- A **parameter lookup** — `32.768 kHz crystal load capacitance`,
-  `VCXO 3.3V phase jitter package`. Hits land on the table region holding the value,
-  not on a window of text that happens to contain the words.
-- A **drawing or layout query** — `package dimensions land pattern`,
-  `pin connection tri-state output`, where the answer is a figure rather than a
-  sentence.
-- Then click a result. Every hit shows its document, page number, and bounding
-  boxes; the **evidence image** — the exact crop of that page region — is bundled
-  for the example queries above. The chunk browser and document tree show how the
-  pages were segmented.
+- **Parameter lookup** — `32.768 kHz crystal load capacitance`,
+  `VCXO 3.3V phase jitter package`. Hits resolve to the table region holding the
+  value, rather than to a text window that merely contains the words.
+- **Drawing or footprint query** — `package dimensions land pattern`,
+  `pin connection tri-state output`, where the answer is a figure rather than
+  prose.
+- **Any result, opened.** Each hit carries its document, page number, and bounding
+  boxes; the **evidence image** — the crop of that page region — is bundled for the
+  example queries above. The chunk browser and document tree show how the pages
+  were segmented.
 
-What the hosted pages actually run: **live BM25 in your browser** against an
-inverted index shipped with the snapshot — every chunk is searchable and queries
-are scored for real, not replayed from fixtures. Dense retrieval, RRF fusion, and
-answer generation are local-pipeline features, marked `offline` in the results.
-Evidence images are pre-rendered for the example queries rather than for all 875 /
-547 chunks, which keeps each snapshot a few megabytes instead of a few hundred; run
-the pipeline locally to get an image for every hit.
+The hosted pages execute **BM25 in the browser** against an inverted index shipped
+with the snapshot: every chunk is searchable and every query is scored at request
+time, not replayed from a fixture. Dense retrieval, RRF fusion, and answer
+generation are local-pipeline capabilities and are reported as `offline` in the
+results. Evidence images are pre-rendered for the example queries rather than for
+all 875 / 547 chunks, which holds each snapshot to a few megabytes instead of
+several hundred; running the pipeline locally produces an image for every hit.
 
 > The demo interface is in Chinese; the pipeline, the code, and these docs are in
 > English.
@@ -119,7 +119,7 @@ the demo sites, and the MCP server without being reimplemented three times.
 `bboxes_pdf` is a **list**, not a union rectangle: each member element keeps its own
 box and its own crop.
 
-### Four decisions that matter
+### Four decisions worth explaining
 
 **1. PDF points are the stored coordinate, pixels are derived.** `bbox_pdf` is
 authoritative; `bbox_px = bbox_pdf × dpi / 72` is used only for cropping. You can
@@ -133,15 +133,15 @@ result that still looks fine. Ranking by area keeps the box that preserves more 
 the source.
 
 **3. Part numbers are tokenized three ways.** A standard tokenizer splits
-`7M-26.000MAAJ-T` into `7 / M / 26 / 000 / MAAJ / T` and part-number search dies.
-Here a part-like token is indexed as the intact token (exact match), as
-alphanumeric subfields (partial recall), and as character 3-grams (substring match,
-so `26.000M` alone still finds it).
+`7M-26.000MAAJ-T` into `7 / M / 26 / 000 / MAAJ / T`, which defeats part-number
+search entirely. Here a part-like token is indexed as the intact token (exact
+match), as alphanumeric subfields (partial recall), and as character 3-grams
+(substring match, so `26.000M` alone still retrieves it).
 
 **4. The two paths are fused on ranks, not scores.** Dense cosine similarity and
-BM25 scores aren't on a comparable scale, and BM25 in particular drifts with query
-length and corpus statistics. RRF (`1/(k + rank)`, `k = 60`) sidesteps both, so the
-embedding model can be replaced without re-tuning a fusion weight. Results keep
+BM25 scores are not on a comparable scale, and BM25 in particular varies with query
+length and corpus statistics. RRF (`1/(k + rank)`, `k = 60`) is invariant to both,
+so the embedding model can be replaced without re-tuning a fusion weight. Results keep
 `dense_rank`, `bm25_rank`, and both raw scores, so any hit can be traced to the
 path that produced it.
 
