@@ -50,7 +50,7 @@ addopts = "-q"
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-exclude = ["data", "data_tkd", "models", "sites"]
+exclude = ["corpora", "data", "data_tkd", "models", "sites"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

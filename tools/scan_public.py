@@ -11,6 +11,7 @@ SKIP_PARTS = {
     ".venv",
     ".vinext",
     ".wrangler",
+    "corpora",
     "data",
     "data_tkd",
     "dist",

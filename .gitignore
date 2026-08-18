@@ -16,7 +16,12 @@ __pycache__/
 venv/
 
 # Local models and generated corpora
+# corpora/ holds the restored v0.1.0 snapshot: vendor PDFs and every derived
+# artifact. It is large and its redistribution terms differ from the code
+# licence, so it must never be committed. /data/ and /data_tkd/ are the pre-0.1
+# layout, kept so older working copies stay covered.
 /models/
+/corpora/
 /data/
 /data_tkd/
 /release_artifacts/
