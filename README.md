@@ -277,11 +277,23 @@ Both are crystal / oscillator datasheet collections, frozen at release
 
 The public sites preserve the original demonstration structure — corpus overview,
 search-result presentation, chunk browser, document tree, and evidence dialogue
-page — and read versioned **static snapshots**: no Python service, no GPU, no API
-key, no cloud model call. Dense retrieval, RRF fusion, ingestion, and optional
-answer generation are local-pipeline capabilities and are *not* exercised by the
-hosted pages. The demonstration interface is in Chinese; the pipeline, the evidence
-contract, and this documentation are in English.
+page — and run from versioned **static snapshots**: no Python service, no GPU, no
+API key, no cloud model call.
+
+What the hosted pages do and do not exercise is worth stating precisely, because
+"static demo" usually means a recording:
+
+- **Live, in-browser BM25.** The inverted index ships with the snapshot and is
+  scored client-side, so queries are answered for real rather than replayed from a
+  fixture. Results carry their true `bm25_rank` and `bm25_score`.
+- **Static evidence.** Chunk records, crops, and merged evidence images are served
+  as files; each result still resolves to its document, page, and bounding boxes.
+- **Not exercised:** dense retrieval and RRF fusion (results report
+  `dense_rank: "offline"`), corpus ingestion, and answer generation. Those remain
+  local-pipeline capabilities.
+
+The demonstration interface is in Chinese; the pipeline, the evidence contract, and
+this documentation are in English.
 
 ---
 
