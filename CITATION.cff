@@ -1,10 +1,87 @@
 cff-version: 1.2.0
-message: "If you use this technical prototype, please cite it as below."
-title: "Evidence RAG Pilot"
-abstract: "A traceable, page-native RAG prototype for engineering datasheets."
-authors:
-  - name: "zzkws"
-version: 0.1.0
-date-released: 2026-08-07
+message: "If you use this prototype or its design, please cite it as below."
+title: "Layout-Aware-Retrieval: Page-Native Layout Regions as a Verifiable Retrieval Unit for Engineering Datasheets"
+abstract: >-
+  A retrieval pipeline for layout-bearing technical documents. The unit of
+  retrieval is a page-native layout region — a group of detected layout elements
+  read as one unit — rather than a fixed-length token window. Document identity,
+  page number, PDF-point bounding boxes, native text, section path, and a rendered
+  evidence image travel together as a single inspectable evidence package, so every
+  result can be checked against the exact region of the exact page it came from.
+  Retrieval fuses a multilingual dense index with a part-number-aware BM25 index by
+  Reciprocal Rank Fusion. No quantitative evaluation has been run; the protocol that
+  would produce one is pre-registered in the repository and contains no results.
+type: software
 license: Apache-2.0
-repository-code: "https://github.com/zzkws/evidence-rag-pilot"
+version: "0.1.2"
+date-released: "2026-08-18"
+repository-code: "https://github.com/zzkws/Layout-Aware-Retrieval"
+url: "https://evidence-rag-txc.zzkws.chatgpt.site"
+keywords:
+  - information retrieval
+  - document layout analysis
+  - document AI
+  - retrieval-augmented generation
+  - hybrid retrieval
+  - rank fusion
+  - evidence traceability
+  - engineering datasheets
+authors:
+  - family-names: Zhou
+    given-names: Zikang
+    alias: zzkws
+    affiliation: Xiamen University
+
+references:
+  - type: article
+    title: "DocLayout-YOLO: Enhancing Document Layout Analysis through Diverse Synthetic Data and Global-to-Local Adaptive Perception"
+    year: 2024
+    url: "https://arxiv.org/abs/2410.12628"
+    authors:
+      - family-names: Zhao
+        given-names: Zhiyuan
+      - family-names: Kang
+        given-names: Hengrui
+      - family-names: Wang
+        given-names: Bin
+      - family-names: He
+        given-names: Conghui
+  - type: conference-paper
+    title: "Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods"
+    year: 2009
+    collection-title: "Proceedings of the 32nd International ACM SIGIR Conference on Research and Development in Information Retrieval"
+    start: 758
+    end: 759
+    authors:
+      - family-names: Cormack
+        given-names: "Gordon V."
+      - family-names: Clarke
+        given-names: "Charles L. A."
+      - family-names: Buettcher
+        given-names: Stefan
+  - type: article
+    title: "The Probabilistic Relevance Framework: BM25 and Beyond"
+    year: 2009
+    journal: "Foundations and Trends in Information Retrieval"
+    volume: 3
+    issue: 4
+    start: 333
+    end: 389
+    authors:
+      - family-names: Robertson
+        given-names: Stephen
+      - family-names: Zaragoza
+        given-names: Hugo
+  - type: article
+    title: "Cumulated Gain-Based Evaluation of IR Techniques"
+    year: 2002
+    journal: "ACM Transactions on Information Systems"
+    volume: 20
+    issue: 4
+    start: 422
+    end: 446
+    authors:
+      - family-names: "Järvelin"
+        given-names: Kalervo
+      - family-names: "Kekäläinen"
+        given-names: Jaana

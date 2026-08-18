@@ -1,22 +1,30 @@
-"""Stage 2: DocLayout-YOLO 版面元素检测 + 检测框去重。
+"""Stage 2: DocLayout-YOLO element detection and box de-duplication.
 
-输入 Stage 1 的页图，输出每页元素框（像素坐标 + PDF 点坐标双坐标系），
-并生成元素级 overlay 可视化图。
+Reads the stage-1 page images and writes, per page, element boxes in both
+coordinate systems (pixels and PDF points), plus an element-level overlay image
+for inspection.
 
-DocLayout-YOLO 原始输出存在重复框：同位双框（同一个表两个框）、
-同类大框包小框（大 figure 里又框一个小 figure）。检测后立即去重，
-**保留依据是面积（框住更多内容者胜），面积相同才比置信度**——YOLO 常给
-内容更全的大框更低的置信度（如 6u 的 table_footnote 大框 0.37 / 小框 0.73，
-按置信度保留会把 Note 行首裁掉）：
-  1. 任意类别近似同框（IoU > 0.85）       -> 保留大框
-  2. 同类别高重叠（IoU > 0.55）           -> 保留大框
-  3. 同类别大框包小框（小框 85% 在大框内）-> 保留大框
-跨类别的包含关系（如 figure 内的 plain_text 标注文字）是真实内容，保留，
-交给下游 VLM 分组决策。
+The raw DocLayout-YOLO output contains duplicates: co-located double boxes (one
+table detected twice) and same-class nesting (a small figure boxed inside a
+large one). De-duplication runs immediately after detection and **ranks by area
+-- the box containing more content wins -- falling back to confidence only on a
+tie**. This matters because YOLO frequently assigns *lower* confidence to the
+box with more content: in document 6u the complete table_footnote box scores
+0.37 against 0.73 for the truncated one, so confidence-first ranking silently
+cuts off the start of the Note line.
 
-权重自动从 HuggingFace 下载（网络不通时自动切 hf-mirror.com）。
+  1. any class, near-identical boxes (IoU > 0.85)      -> keep the larger
+  2. same class, high overlap (IoU > 0.55)             -> keep the larger
+  3. same class, 85% of the smaller inside the larger  -> keep the larger
 
-用法:
+Cross-class nesting -- for example plain_text annotations inside a figure -- is
+real content and is preserved, to be resolved downstream by the VLM grouping
+pass.
+
+Weights download from Hugging Face automatically, falling back to
+hf-mirror.com when the direct connection fails.
+
+Usage:
     python pipeline/layout.py [--docs 6u 7m ...]
 """
 import argparse
@@ -39,7 +47,7 @@ def get_model_weights() -> Path:
         path = hf_hub_download(config.LAYOUT_MODEL_REPO, config.LAYOUT_MODEL_FILE,
                                local_dir=config.MODELS_DIR)
     except Exception as e:
-        print(f"[layout] HF 直连失败({e})，切换 hf-mirror.com 重试")
+        print(f"[layout] direct Hugging Face fetch failed ({e}); retrying via hf-mirror.com")
         os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
         path = hf_hub_download(config.LAYOUT_MODEL_REPO, config.LAYOUT_MODEL_FILE,
                                local_dir=config.MODELS_DIR)
@@ -56,11 +64,13 @@ def _inter(a, b):
 
 
 def dedup_elements(elements: list) -> list:
-    """检测框去重，规则见模块 docstring。
+    """De-duplicate detection boxes; the rules are in the module docstring.
 
-    按 (面积降序, 置信度降序) 贪心：先收大框，后来的小框若与已留框
-    高重叠（IoU 超阈值）或同类被包含（85% 面积落在已留框内），即为
-    重复，丢弃——天然实现"保留框住更多内容的那个"。"""
+    A greedy pass sorted by (area descending, confidence descending): larger
+    boxes are taken first, and a later, smaller box is dropped when it overlaps
+    a kept box beyond the IoU threshold, or when it is same-class and 85%
+    contained by one. Because the sort is area-descending, dropping the
+    candidate is exactly "keep the box that covers more content"."""
     survivors = []
     for e in sorted(elements,
                     key=lambda x: (-_area(x["bbox_px"]), -x["conf"])):
@@ -73,7 +83,7 @@ def dedup_elements(elements: list) -> list:
                 dup = True
                 break
             if same and i / (_area(e["bbox_px"]) + 1e-6) > 0.85:
-                dup = True  # e 是后来者，面积必不大于 k：被包含即重复
+                dup = True  # e comes later, so its area <= k: containment means duplicate
                 break
         if not dup:
             survivors.append(e)
@@ -105,7 +115,7 @@ def detect_doc(model, doc_id: str) -> dict:
             })
         n_raw = len(elements)
         elements = dedup_elements(elements)
-        # 按 y 再 x 排序，方便人工查看（真正的阅读顺序由 VLM 分组决定）
+        # Sort by y then x for readability; true reading order comes from the VLM grouping
         elements.sort(key=lambda e: (e["bbox_px"][1], e["bbox_px"][0]))
         result_pages.append({"page": pmeta["page"], "elements": elements,
                              "n_raw_detections": n_raw,
@@ -124,7 +134,7 @@ def detect_doc(model, doc_id: str) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--docs", nargs="*", help="指定 doc_id 列表")
+    ap.add_argument("--docs", nargs="*", help="explicit list of doc_ids")
     args = ap.parse_args()
     doc_ids = args.docs or config.DEMO_DOCS
 

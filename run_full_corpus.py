@@ -1,12 +1,15 @@
-"""全量语料编排：把 TXC datasheet 目录下全部 PDF 跑完整条管线。
+"""Whole-corpus orchestration: run every PDF in the corpus through the pipeline.
 
-特性：
-- 断点续传：每阶段按产物存在性跳过已完成文档，可反复重跑
-- 配额保护：Gemini 持续失败（429/quota/RESOURCE_EXHAUSTED）时优雅停止
-  VLM 阶段，已完成的文档照常进索引；之后重跑本脚本即从断点继续
-- 日志协议（供监控 grep）：[stage] / [vlm-ok] / [QUOTA-STOP] / [FATAL] / [ALL-DONE]
+Properties:
+- Resumable. Each stage skips documents whose artifacts already exist, so the
+  script can be re-run as often as needed.
+- Quota-aware. Sustained Gemini failures (429 / quota / RESOURCE_EXHAUSTED) stop
+  the VLM stage gracefully; documents that did complete are still indexed, and
+  re-running the script picks up from that point.
+- Stable log protocol, for monitoring by grep:
+  [stage] / [vlm-ok] / [QUOTA-STOP] / [FATAL] / [ALL-DONE]
 
-用法:
+Usage:
     python -X utf8 -u run_full_corpus.py
 """
 import json
@@ -22,7 +25,7 @@ from pipeline.render import render_doc
 from pipeline.vlm_blocks import process_doc
 
 QUOTA_MARKERS = ("429", "quota", "resource_exhausted", "rate limit")
-VLM_WORKERS = 5   # Gemini 请求并发度（文档级并发，每文档内部仍按页串行）
+VLM_WORKERS = 5   # Gemini concurrency, at document level; pages stay serial per document
 
 
 def log(msg):
@@ -33,7 +36,7 @@ def main():
     all_docs = sorted(p.stem for p in config.PDF_SOURCE_DIR.glob("*.pdf"))
     log(f"[stage] corpus: {len(all_docs)} PDFs")
 
-    # ① render（按 pages.json 跳过）
+    # 1. render (skipped per pages.json)
     todo = [d for d in all_docs
             if not (config.PAGES_DIR / d / "pages.json").exists()]
     log(f"[stage] render start: {len(todo)} to do, "
@@ -42,7 +45,7 @@ def main():
         render_doc(d)
     log("[stage] render done")
 
-    # ② layout（按 layout/{doc}.json 跳过；模型只加载一次）
+    # 2. layout (skipped per layout/{doc}.json; the model loads once)
     todo = [d for d in all_docs
             if not (config.LAYOUT_DIR / f"{d}.json").exists()]
     log(f"[stage] layout start: {len(todo)} to do")
@@ -56,7 +59,7 @@ def main():
                 log(f"[layout] {i}/{len(todo)}")
     log("[stage] layout done")
 
-    # ③ extract（对尚无 VLM 产物的文档跑，幂等）
+    # 3. extract (run for documents without VLM artifacts; idempotent)
     todo = [d for d in all_docs
             if not (config.DESC_DIR / f"{d}.json").exists()]
     log(f"[stage] extract start: {len(todo)} to do")
@@ -64,7 +67,8 @@ def main():
         extract_elements(d)
     log("[stage] extract done")
 
-    # ④ VLM（按 descriptions/{doc}.json 跳过；文档级并发；配额耗尽即停）
+    # 4. VLM (skipped per descriptions/{doc}.json; concurrent per document;
+    #    stops as soon as the quota is exhausted)
     todo = [d for d in all_docs
             if not (config.DESC_DIR / f"{d}.json").exists()]
     log(f"[stage] vlm start: {len(todo)} to do, "
@@ -89,7 +93,7 @@ def main():
                 break
             fail_n += 1
             log(f"[vlm-err] {d}: {e}")
-            if fail_n >= 3:  # 多文档持续失败，大概率配额/网络
+            if fail_n >= 3:  # several documents failing in a row: quota or network
                 log(f"[QUOTA-STOP] {fail_n} failures, done={done_n}/{len(todo)}")
                 ex.shutdown(wait=False, cancel_futures=True)
                 stopped = True
@@ -98,13 +102,13 @@ def main():
         ex.shutdown(wait=True)
     log("[stage] vlm done")
 
-    # ④.5 chunk 成员裁剪图合并（每 chunk 一张，证据分析用）
+    # 5. merge member crops into one evidence image per chunk
     from pipeline.merge_crops import merge_chunk_crops
     done_docs = sorted(p.stem for p in config.DESC_DIR.glob("*.json"))
     n_merged = sum(merge_chunk_crops(d) for d in done_docs)
     log(f"[stage] merge_crops done: {n_merged} merged images")
 
-    # ⑤ 索引全部已完成文档
+    # 6. index every completed document
     log(f"[stage] index start: {len(done_docs)} docs")
     import numpy as np
 

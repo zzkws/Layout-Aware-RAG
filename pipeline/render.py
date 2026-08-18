@@ -1,12 +1,13 @@
-"""Stage 1: PDF 渲染 + 文档预检。
+"""Stage 1: PDF rendering and document pre-check.
 
-每份 PDF 渲染为 200dpi 页图，并记录页级元数据：
-- PDF 点坐标尺寸（权威坐标系）与像素尺寸
-- 文字层字符数 -> born-digital 判定（决定 Stage 4 走文字层还是 OCR）
+Each PDF is rendered to 200 dpi page images, with page-level metadata recorded:
+- size in PDF points (the authoritative coordinate system) and in pixels
+- text-layer character count -> born-digital decision, which determines whether
+  stage 3 can read a text layer or the page would need OCR
 
-用法:
-    python pipeline/render.py            # 处理 config.DEMO_DOCS
-    python pipeline/render.py --all      # 处理目录下全部 PDF
+Usage:
+    python pipeline/render.py            # process config.DEMO_DOCS
+    python pipeline/render.py --all      # process every PDF in the directory
 """
 import argparse
 import json
@@ -57,8 +58,8 @@ def render_doc(doc_id: str) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--all", action="store_true", help="处理目录下全部 PDF")
-    ap.add_argument("--docs", nargs="*", help="指定 doc_id 列表")
+    ap.add_argument("--all", action="store_true", help="process every PDF in the directory")
+    ap.add_argument("--docs", nargs="*", help="explicit list of doc_ids")
     args = ap.parse_args()
 
     if args.all:

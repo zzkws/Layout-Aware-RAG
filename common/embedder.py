@@ -1,12 +1,12 @@
-"""统一 embedding 后端（惰性单例）。
+"""Unified embedding backend (lazy singleton).
 
-st       : sentence-transformers，默认 microsoft/harrier-oss-v1-0.6b
-           （Qwen3 架构多语言检索模型；query 侧走模型内置
-            web_search_query prompt，文档侧不加 prompt）
-fastembed: ONNX bge-small 轻量备选（离线缓存）
+st       : sentence-transformers, default microsoft/harrier-oss-v1-0.6b
+           (multilingual retrieval model; the query side uses the model's
+            built-in web_search_query prompt, the document side uses none)
+fastembed: ONNX bge-small lightweight fallback (offline cache)
 
-index_build / search / webapp 统一经由 embed_docs / embed_query 调用，
-切换后端只改 config.EMBED_BACKEND。
+index_build / search / webapp all go through embed_docs / embed_query, so
+switching backends means changing config.EMBED_BACKEND and nothing else.
 """
 import sys
 from pathlib import Path
@@ -27,10 +27,10 @@ def _load():
         from sentence_transformers import SentenceTransformer
         path = (config.EMBED_LOCAL_DIR if config.EMBED_LOCAL_DIR.exists()
                 else config.EMBED_MODEL)
-        _model = SentenceTransformer(str(path))  # 自动选 cuda/cpu
+        _model = SentenceTransformer(str(path))  # picks cuda/cpu automatically
     else:
         import os
-        os.environ.setdefault("HF_HUB_OFFLINE", "1")  # 优先本地缓存
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")  # prefer the local cache
         from fastembed import TextEmbedding
         try:
             _model = TextEmbedding(model_name=config.FASTEMBED_MODEL,

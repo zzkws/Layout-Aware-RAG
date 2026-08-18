@@ -1,21 +1,26 @@
-"""演示网站后端：纯标准库 HTTP 服务，零新增依赖。
+"""Demonstration web backend: a standard-library HTTP service, no new deps.
 
-  GET  /            前端单页（webapp/index.html）
-  GET  /chunks      chunk 浏览页（webapp/chunks.html）
-  GET  /doc         单文档目录树页（webapp/doc.html，?doc=<doc_id>）
-  GET  /api/stats   RAG 库分布（文档/页/chunk/block_type 统计 + 摘要卡）
-  GET  /api/chunks  全部已索引 chunk（浏览页数据源）
-  GET  /api/doc     单文档 doc_card(含 toc 树) + 全部 chunk（?id=<doc_id>）
-  POST /api/search  {"query": "...", "top_k": 5}        直接调用 RAG
-  POST /api/ask     {"request": "...", "top_k": 5}      可选查询改写后调 RAG
+  GET  /            single-page frontend (webapp/index.html)
+  GET  /chunks      chunk browser (webapp/chunks.html)
+  GET  /doc         per-document TOC tree (webapp/doc.html, ?doc=<doc_id>)
+  GET  /api/stats   corpus distribution (document / page / chunk / block_type
+                    counts, plus the document summary cards)
+  GET  /api/chunks  every indexed chunk; the data source for the browser page
+  GET  /api/doc     one document's doc_card (with toc tree) and all its chunks
+                    (?id=<doc_id>)
+  POST /api/search  {"query": "...", "top_k": 5}   retrieve directly
+  POST /api/ask     {"request": "...", "top_k": 5} optional query rewrite,
+                                                   then retrieve
   POST /api/answer  {"request": "...", "query": "...", "chunk_ids": [...]}
-                    可选 OpenAI-compatible 多模态模型基于证据(文本+裁剪图)
-                    和原始需求生成带 [E1] 引用的答案
-  GET  /chat        可选模型对话页（webapp/chat.html）
-  POST /api/chat    {"messages": [...]} -> SSE 流式转发配置的模型服务
-  GET  /data/...    管线产物静态文件（chunk 裁剪图等）
+                    An optional OpenAI-compatible multimodal model then reads
+                    the evidence (text plus crops) together with the original
+                    request and produces an answer carrying [E1] citations.
+  GET  /chat        optional model chat page (webapp/chat.html)
+  POST /api/chat    {"messages": [...]} -> SSE stream proxied to the configured
+                    model service
+  GET  /data/...    static pipeline artifacts (chunk crops and so on)
 
-用法:
+Usage:
     python -X utf8 webapp/server.py [--port 8765]
 """
 import argparse
@@ -34,12 +39,15 @@ from pipeline.search import Index
 
 WEB_DIR = Path(__file__).parent
 INDEX = Index()
-_lock = threading.Lock()   # fastembed 推理非线程安全，检索串行化
+_lock = threading.Lock()   # fastembed inference is not thread-safe: serialize retrieval
 
 
 def _b64_image(path, max_w=1200):
-    """读图并限制宽度。只按宽缩放——chunk 合并图是纵向长图，
-    若按最长边缩会把表格文字压糊。"""
+    """Load an image and cap its width.
+
+    Width only, never longest edge: a merged chunk image is a tall narrow
+    strip, and fitting it to a longest-edge budget crushes table text into
+    illegibility."""
     from io import BytesIO
 
     from PIL import Image
@@ -50,6 +58,10 @@ def _b64_image(path, max_w=1200):
     img.convert("RGB").save(buf, "PNG")
     return base64.b64encode(buf.getvalue()).decode()
 
+# The prompts below are intentionally written in Chinese: they drive the demo
+# interface, which is Chinese. Everything else in this repository -- pipeline,
+# evidence contract, documentation -- is English. Both prompt bodies are also
+# corpus-aware, substituting the active manufacturer for the default label.
 CHAT_SYS = """你是 TXC 石英器件技术助手。
 你熟悉石英晶体谐振器、TCXO/VCXO/OCXO/SPXO 等频率器件的参数体系
 （频率容差、温度稳定度、负载电容、ESR、相位噪声、老化等）。
@@ -94,7 +106,7 @@ def corpus_stats() -> dict:
 
 
 def _merged_image(c) -> str | None:
-    """chunk 合并图的约定路径（存在才返回，旧数据回退成员图）。"""
+    """Conventional path of a chunk's merged image, if it exists."""
     rel = f"blocks/merged/{c['doc_id']}/{c['chunk_id']}.png"
     return rel if (config.DATA_DIR / rel).is_file() else None
 
@@ -102,7 +114,7 @@ def _merged_image(c) -> str | None:
 def do_search(query: str, top_k: int) -> list:
     with _lock:
         results = INDEX.search(query, top_k)
-    for r in results:  # Windows 路径 -> URL
+    for r in results:  # Windows path -> URL
         r["crop_images"] = [p.replace("\\", "/") for p in r["crop_images"]]
         r["source_pdf"] = r["source_pdf"].replace("\\", "/")
         r["merged_image"] = _merged_image(r)
@@ -133,7 +145,8 @@ def _auth_headers(api_key: str) -> dict[str, str]:
 
 
 def generate_answer(user_request: str, query: str, chunks: list) -> str:
-    """让可选的 OpenAI-compatible 多模态服务读取证据并生成引用答案。"""
+    """Have the optional OpenAI-compatible multimodal service read the evidence
+    and produce an answer with citations."""
     if not (config.LLM_BASE_URL and config.LLM_MODEL):
         raise RuntimeError(
             "answer generation is disabled; set RAG_LLM_BASE_URL and RAG_LLM_MODEL"
@@ -147,8 +160,8 @@ def generate_answer(user_request: str, query: str, chunks: list) -> str:
             f"目录位置: {c.get('toc_path') or '-'}\n"
             f"  description: {c['description']}\n"
             f"  text: {c['native_text'][:600]}")
-        # 每个 chunk 一张合并图（merge_crops.py 产物，约定路径）；
-        # 旧数据无合并图时退回第一张成员图
+        # One merged image per chunk, at the conventional merge_crops.py path.
+        # Older data without a merged image falls back to the first member crop.
         merged = (config.DATA_DIR / "blocks" / "merged" / c["doc_id"]
                   / f"{c['chunk_id']}.png")
         img_path = (merged if merged.exists() else
@@ -204,7 +217,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _file(self, path: Path, ctype: str):
         body = path.read_bytes()
-        # 语料感知：非 TXC profile 时把页面里的标题/厂商名替换为当前语料
+        # Corpus-aware: on a non-default profile, swap the page title and
+        # manufacturer name for the active corpus
         if config.MANUFACTURER != "TXC" and ctype.startswith("text/html"):
             body = body.replace(b"TXC Datasheet", config.CORPUS_TITLE.encode())
             body = body.replace(b"TXC", config.MANUFACTURER.encode())
@@ -287,7 +301,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": str(e)}, 500)
 
     def _chat_stream(self, payload):
-        """SSE 流式转发配置的 OpenAI-compatible /chat/completions。"""
+        """Proxy the configured OpenAI-compatible /chat/completions as an SSE stream."""
         msgs = payload.get("messages") or []
         if not msgs:
             self._json({"error": "empty messages"}, 400)
@@ -313,7 +327,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(line + b"\n\n")
                     self.wfile.flush()
         except (BrokenPipeError, ConnectionAbortedError):
-            pass   # 客户端中途离开
+            pass   # client disconnected mid-stream
         finally:
             up.close()
 
@@ -362,7 +376,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._json({"error": str(e)}, 500)
 
-    def log_message(self, fmt, *args):  # 精简日志
+    def log_message(self, fmt, *args):  # quieter logging
         print(f"[web] {self.address_string()} {fmt % args}")
 
 
@@ -370,11 +384,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1",
-                    help="局域网部署用 0.0.0.0")
+                    help="use 0.0.0.0 to serve on the local network")
     args = ap.parse_args()
 
-    print("[web] 预热 embedding 模型 ...")
-    INDEX.embed_query("warm up")   # 首次检索不卡顿
+    print("[web] warming up the embedding model ...")
+    INDEX.embed_query("warm up")   # so the first real query does not stall
     print(f"[web] http://{args.host}:{args.port}  "
           f"({len(INDEX.chunks)} chunks ready)")
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
