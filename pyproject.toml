@@ -3,9 +3,9 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "layout-aware-retrieval"
+name = "layout-aware-rag"
 version = "0.1.2"
-description = "Layout-aware retrieval over engineering datasheets: page-native layout regions as a verifiable retrieval unit"
+description = "Layout-aware RAG for engineering datasheets: retrieval over page-native layout regions with verifiable evidence"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "Apache-2.0" }
@@ -29,11 +29,11 @@ mcp = ["mcp>=1,<2", "pydantic>=2,<3"]
 dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
 
 [project.urls]
-Homepage = "https://github.com/zzkws/Layout-Aware-Retrieval"
-Repository = "https://github.com/zzkws/Layout-Aware-Retrieval"
-Documentation = "https://github.com/zzkws/Layout-Aware-Retrieval/tree/main/docs"
+Homepage = "https://github.com/zzkws/Layout-Aware-RAG"
+Repository = "https://github.com/zzkws/Layout-Aware-RAG"
+Documentation = "https://github.com/zzkws/Layout-Aware-RAG/tree/main/docs"
 Demo = "https://evidence-rag-txc.zzkws.chatgpt.site"
-Issues = "https://github.com/zzkws/Layout-Aware-Retrieval/issues"
+Issues = "https://github.com/zzkws/Layout-Aware-RAG/issues"
 
 [tool.setuptools]
 py-modules = ["config", "evidence_service"]

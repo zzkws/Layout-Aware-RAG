@@ -1,30 +1,28 @@
 cff-version: 1.2.0
-message: "If you use this prototype or its design, please cite it as below."
-title: "Layout-Aware-Retrieval: Page-Native Layout Regions as a Verifiable Retrieval Unit for Engineering Datasheets"
+message: "If you use this demo or its design, please cite it as below."
+title: "Layout-Aware-RAG: Layout-Aware Retrieval-Augmented Generation for Engineering Datasheets"
 abstract: >-
-  A retrieval pipeline for layout-bearing technical documents. The unit of
-  retrieval is a page-native layout region — a group of detected layout elements
-  read as one unit — rather than a fixed-length token window. Document identity,
-  page number, PDF-point bounding boxes, native text, section path, and a rendered
-  evidence image travel together as a single inspectable evidence package, so every
-  result can be checked against the exact region of the exact page it came from.
-  Retrieval fuses a multilingual dense index with a part-number-aware BM25 index by
-  Reciprocal Rank Fusion. No quantitative evaluation has been run; the protocol that
-  would produce one is pre-registered in the repository and contains no results.
+  A RAG demo for documents where the layout carries the meaning. The unit of
+  retrieval is a page-native layout region -- a group of detected layout elements
+  read as one unit, such as a table with its caption and footnote -- rather than a
+  fixed-length token window. Document identity, page number, PDF-point bounding
+  boxes, native text, section path, and a rendered evidence image travel together,
+  so every result can be checked against the exact region of the exact page it came
+  from. Retrieval fuses a multilingual dense index with a part-number-aware BM25
+  index by Reciprocal Rank Fusion. Not quantitatively evaluated.
 type: software
 license: Apache-2.0
 version: "0.1.2"
 date-released: "2026-08-18"
-repository-code: "https://github.com/zzkws/Layout-Aware-Retrieval"
+repository-code: "https://github.com/zzkws/Layout-Aware-RAG"
 url: "https://evidence-rag-txc.zzkws.chatgpt.site"
 keywords:
+  - retrieval-augmented generation
   - information retrieval
   - document layout analysis
   - document AI
-  - retrieval-augmented generation
   - hybrid retrieval
   - rank fusion
-  - evidence traceability
   - engineering datasheets
 authors:
   - family-names: Zhou
@@ -72,16 +70,3 @@ references:
         given-names: Stephen
       - family-names: Zaragoza
         given-names: Hugo
-  - type: article
-    title: "Cumulated Gain-Based Evaluation of IR Techniques"
-    year: 2002
-    journal: "ACM Transactions on Information Systems"
-    volume: 20
-    issue: 4
-    start: 422
-    end: 446
-    authors:
-      - family-names: "Järvelin"
-        given-names: Kalervo
-      - family-names: "Kekäläinen"
-        given-names: Jaana
