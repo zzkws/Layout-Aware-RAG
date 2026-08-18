@@ -1,11 +1,14 @@
-"""型号感知分词器，供 BM25/FTS 使用。
+"""Part-number-aware tokenizer, used by the BM25 / FTS path.
 
-默认分词器会把 7M-26.000MAAJ-T 拆成 7/M/26/000/MAAJ/T，使型号查询失效。
-本分词器对"型号样"token（含数字且含 - 或 . 的长 token）做三重索引：
-  1. 保留完整原 token（精确匹配通道）
-  2. 拆出字母数字子段（部分记忆匹配）
-  3. 字符 3-gram（子串模糊匹配，如只记得 26.000M）
-普通英文词正常小写分词。
+A standard tokenizer splits 7M-26.000MAAJ-T into 7/M/26/000/MAAJ/T, which
+destroys part-number search -- the dominant query type for this corpus.
+
+Part-like tokens (long, contain a digit, contain separators) are indexed
+through three channels:
+  1. the intact token          -- exact match
+  2. alphanumeric subfields    -- partial recall, user remembers part of it
+  3. character 3-grams         -- substring match, e.g. 26.000M alone
+Ordinary words take the normal lowercase path.
 """
 import re
 
@@ -25,9 +28,9 @@ def tokenize(text: str) -> list[str]:
         if not raw:
             continue
         if _PARTLIKE_RE.match(raw):
-            tokens.append(raw)                       # 完整型号 token
-            tokens.extend(_WORD_RE.findall(raw))     # 子段
-            tokens.extend(_char_ngrams(raw))         # 3-gram
+            tokens.append(raw)                       # intact part number
+            tokens.extend(_WORD_RE.findall(raw))     # subfields
+            tokens.extend(_char_ngrams(raw))         # 3-grams
         else:
             tokens.extend(_WORD_RE.findall(raw))
     return tokens

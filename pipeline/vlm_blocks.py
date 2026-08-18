@@ -1,26 +1,40 @@
-"""Stage 4: VLM（Gemini）板块切分 + 目录构建 + 描述生成（自底向上）。
+"""Stage 4: VLM grouping, table-of-contents construction, and descriptions.
 
-三段式（每个 Gemini 调用都要求英文直出，无中文字符）：
+Three passes, bottom-up. Every Gemini call is required to emit English-only
+fields, so the index composition stays language-stable even where the source
+pages are not.
 
-  Pass 1（每文档一次）：全部原始页图 -> 文档摘要卡 doc_card + doc_name
-                        （doc_name 作为目录根，自动加前缀；本阶段不建 toc）
-  Pass 2（每页一次）  ：doc_card + 原始页图 + 元素编号标注图 + 元素清单
-                        -> 决定元素分组成板块(chunk)，逐块生成
-                           section_title / description / keywords / block_type
-                           （此阶段不分配 toc_path）
-  Pass 3（每文档一次）：把全部已分好的 chunk 按阅读序汇成清单（纯文本）
-                        -> 由 chunk 归纳出全文目录 toc（要求严格按阅读序排），
-                           并为每个 chunk 分配目录位置 toc_path
+  Pass 1 (once per document): all page images
+        -> doc_card summary and doc_name. doc_name becomes the TOC root; no
+           toc is built at this stage.
+  Pass 2 (once per page):     doc_card, page image, element-numbered overlay,
+                              element list
+        -> groups elements into chunks and, per chunk,
+           section_title / description / keywords / block_type.
+           toc_path is not assigned here.
+  Pass 3 (once per document): every chunk as a plain-text digest in reading
+                              order
+        -> induces the document toc from the chunks (strictly in reading order)
+           and assigns each chunk its toc_path.
 
-代码侧兜底校验：元素号去重、漏分配元素补成独立板块、按 y 排阅读顺序、
-空 toc_path 判索引功能性块（toc_redundant，不进索引；含 figure/table 的块
-永不被目录替代，VLM 误判空路径时兜底挂根）。产物：blocks/{doc}.json + 裁剪图
-+ overlay + descriptions/{doc}.json，下游 index_build / search / report 无需改动。
+Guards applied in code afterwards, because a model deciding groupings will
+occasionally return something structurally wrong and none of these failures has
+a visible symptom:
+  - duplicate element indices are removed;
+  - elements the VLM failed to assign become single-element chunks rather than
+    being dropped;
+  - reading order within a page is assigned by minimum y;
+  - an empty toc_path marks a chunk as index-functional (toc_redundant, kept out
+    of the index), except that a chunk containing a figure or table is never
+    dropped this way -- an empty path falls back to the document root.
 
-用法:
+Artifacts: blocks/{doc}.json, crops, overlays, descriptions/{doc}.json.
+Downstream index_build / search / report need no change.
+
+Usage:
     python pipeline/vlm_blocks.py [--docs selection_guide ...]
-环境:
-    GEMINI_API_KEY, GEMINI_MODEL 可覆盖默认模型
+Environment:
+    GEMINI_API_KEY; GEMINI_MODEL overrides the default model
 """
 import argparse
 import base64
@@ -40,7 +54,7 @@ from common.draw import draw_boxes
 
 CROP_PAD = 8
 
-# 板块 overlay 用色环（同一 chunk 成员框同色）
+# Colour ring for chunk overlays: all members of one chunk share a colour
 CHUNK_PALETTE = ["#d62728", "#1f77b4", "#2ca02c", "#9467bd", "#ff7f0e",
                  "#17becf", "#e377c2", "#8c564b", "#bcbd22", "#7f7f7f"]
 
@@ -54,7 +68,7 @@ BLOCK_TYPES = [
     "table_block", "figure_block", "text_section", "header_footer",
 ]
 
-# ── 三个 prompt：全字段英文直出（无中文字符）─────────────────────────────────
+# -- The three prompts. Every field is required to come back in English -------
 
 DOC_CARD_PROMPT = """You are reading a complete {mfr} datasheet.
 There are {n_pages} page image(s) attached in order.
@@ -169,7 +183,7 @@ Output JSON only:
 def _api_key() -> str:
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
-        raise SystemExit("缺少 GEMINI_API_KEY 环境变量")
+        raise SystemExit("GEMINI_API_KEY is not set")
     return key
 
 
@@ -196,19 +210,19 @@ def gemini_json(parts: list, retries: int = 3) -> dict:
             r.raise_for_status()
             text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
             return json.loads(text)
-        except Exception as e:  # 瞬态错误指数退避重试
+        except Exception as e:  # transient failure: exponential backoff
             last_err = e
             if attempt < retries - 1:
                 wait = 5 * (2 ** attempt)
-                print(f"    [retry] {e} -> {wait}s 后重试")
+                print(f"    [retry] {e} -> retrying in {wait}s")
                 time.sleep(wait)
-    raise RuntimeError(f"Gemini 调用失败: {last_err}")
+    raise RuntimeError(f"Gemini call failed: {last_err}")
 
 
-# ---------------------------------------------------------------- 三段式调用
+# -------------------------------------------------------------- the three passes
 
 def make_doc_card(doc_id: str, pages_meta: dict) -> dict:
-    """Pass 1：通读全部页图 -> 文档摘要卡 doc_card + doc_name（不含 toc）。"""
+    """Pass 1: read every page image -> doc_card and doc_name. No toc yet."""
     parts = [{"text": DOC_CARD_PROMPT.format(
         n_pages=pages_meta["page_count"], mfr=config.MANUFACTURER)}]
     for p in pages_meta["pages"]:
@@ -217,7 +231,7 @@ def make_doc_card(doc_id: str, pages_meta: dict) -> dict:
 
 
 def group_page(doc_id: str, doc_card: dict, lpage: dict, n_pages: int) -> list:
-    """Pass 2：单页元素分组成板块 + 逐块描述（不分配 toc_path）。"""
+    """Pass 2: group one page's elements into chunks and describe each. No toc_path."""
     pno = lpage["page"]
     inventory = "\n".join(
         f"{i} | {e['label']} | {json.dumps(e.get('native_text', '')[:200])}"
@@ -235,17 +249,17 @@ def group_page(doc_id: str, doc_card: dict, lpage: dict, n_pages: int) -> list:
 
 
 def build_toc(doc_id: str, doc_card: dict, digest: list) -> dict:
-    """Pass 3：由全部 chunk（按阅读序的清单）归纳 toc + 给每块分配 toc_path。"""
+    """Pass 3: induce the toc from all chunks in reading order, assign toc_path."""
     prompt = TOC_PROMPT.format(
         mfr=config.MANUFACTURER, doc_name=doc_card.get("doc_name", "") or doc_id,
         digest="\n".join(digest))
     return gemini_json([{"text": prompt}])
 
 
-# ---------------------------------------------------------------- 校验与落盘
+# ----------------------------------------------------------- validation and output
 
 def validate_groups(vlm_blocks: list, n_elements: int) -> list:
-    """元素号去重 + 漏分配补单元素板块；返回净化后的分组。"""
+    """Drop duplicate element indices, recover unassigned ones; return clean groups."""
     seen = set()
     cleaned = []
     for vb in vlm_blocks:
@@ -261,7 +275,7 @@ def validate_groups(vlm_blocks: list, n_elements: int) -> list:
                         "section_title": vb.get("section_title", "") or "",
                         "description": vb.get("description", "") or "",
                         "keywords": vb.get("keywords", []) or []})
-    for i in range(n_elements):  # VLM 漏分配的元素兜底成独立板块
+    for i in range(n_elements):  # elements the VLM missed become their own chunk
         if i not in seen:
             cleaned.append({"elements": [i], "block_type": "text_section",
                             "section_title": "",
@@ -271,8 +285,10 @@ def validate_groups(vlm_blocks: list, n_elements: int) -> list:
 
 
 def split_discontiguous(groups: list, elems: list, page_h: float) -> list:
-    """几何防线：组内成员若在垂直方向断开超过 18% 页高（如页眉+页脚被并为
-    一组），按垂直连续性拆成子组。description 留给最大的子组。"""
+    """Geometric guard: split a group whose members are separated vertically by
+    more than 18% of the page height -- the archetypal failure being a running
+    header grouped with a footer. Sub-groups are vertically contiguous; the
+    description stays with the largest one."""
     max_gap = page_h * 0.18
     out = []
     for g in groups:
@@ -304,7 +320,7 @@ def split_discontiguous(groups: list, elems: list, page_h: float) -> list:
 
 
 def process_doc(doc_id: str) -> dict:
-    """跑完整三段式，落盘 blocks/{doc}.json + descriptions/{doc}.json。"""
+    """Run all three passes; write blocks/{doc}.json + descriptions/{doc}.json."""
     layout = json.loads(
         (config.LAYOUT_DIR / f"{doc_id}.json").read_text(encoding="utf-8"))
     pages_meta = json.loads(
@@ -313,22 +329,22 @@ def process_doc(doc_id: str) -> dict:
 
     crops_dir = config.BLOCKS_DIR / "crops" / doc_id
     overlay_dir = config.BLOCKS_DIR / "overlays" / doc_id
-    for d in (crops_dir, overlay_dir):  # 清掉上一轮旧产物，避免 stale 混杂
+    for d in (crops_dir, overlay_dir):  # clear the previous run so no stale images survive
         shutil.rmtree(d, ignore_errors=True)
         d.mkdir(parents=True, exist_ok=True)
 
-    print(f"[vlm] {doc_id}: pass1 文档摘要卡 ...")
+    print(f"[vlm] {doc_id}: pass1 document summary card ...")
     doc_card = make_doc_card(doc_id, pages_meta)
     doc_name = (doc_card.get("doc_name") or doc_card.get("title")
                 or doc_id).strip()
 
-    # Pass2：逐页分组+描述，先不定 toc_path
-    all_blocks, metas = [], []   # metas[i] 与 all_blocks[i] 同序：{g, has_graphic}
+    # Pass 2: group and describe page by page; toc_path comes later
+    all_blocks, metas = [], []   # metas[i] parallels all_blocks[i]: {g, has_graphic}
     for lpage in layout["pages"]:
         pno = lpage["page"]
         pmeta = pmeta_by_no[pno]
         scale = 72.0 / pmeta["render_dpi"]
-        print(f"[vlm] {doc_id}: pass2 第 {pno} 页分组+描述 ...")
+        print(f"[vlm] {doc_id}: pass2 page {pno} grouping + descriptions ...")
         groups = validate_groups(
             group_page(doc_id, doc_card, lpage, pages_meta["page_count"]),
             len(lpage["elements"]))
@@ -336,16 +352,17 @@ def process_doc(doc_id: str) -> dict:
                                      pmeta["height_px"])
         n_un = sum(1 for g in groups if g.get("_unassigned"))
         if n_un:
-            print(f"    [warn] {n_un} 个元素未被 VLM 分配，已补为独立板块")
+            print(f"    [warn] {n_un} element(s) unassigned by the VLM; kept as standalone chunks")
 
         elems = lpage["elements"]
-        groups.sort(key=lambda g: min(elems[i]["bbox_px"][1]    # 按最小 y 排阅读序
+        groups.sort(key=lambda g: min(elems[i]["bbox_px"][1]    # reading order by minimum y
                                       for i in g["elements"]))
         img = Image.open(config.PAGES_DIR / doc_id / pmeta["image"])
         page_blocks, overlay_boxes = [], []
         for g in groups:
-            # chunk = 成员元素的集合：bbox 不做并集，每个元素保留自己的
-            # bbox 和裁剪图；native_text 按元素顺序拼接；description 写整体
+            # A chunk is a set of member elements. bboxes are never unioned:
+            # each element keeps its own box and its own crop. native_text is
+            # the members concatenated in order; description covers the whole.
             members = [elems[i] for i in g["elements"]]
             bid = f"{doc_id}_p{pno}_b{len(page_blocks):02d}"
             crop_paths, bboxes_px = [], []
@@ -365,12 +382,12 @@ def process_doc(doc_id: str) -> dict:
                 "reading_order": len(page_blocks),
                 "block_type": g["block_type"],
                 "section_title": g["section_title"],
-                "toc_path": "", "toc_redundant": False,   # Pass3 后回填
+                "toc_path": "", "toc_redundant": False,   # filled in after pass 3
                 "bboxes_px": bboxes_px,
                 "bboxes_pdf": [[round(v * scale, 2) for v in bb]
                                for bb in bboxes_px],
                 "render_dpi": pmeta["render_dpi"],
-                "indexable": True,                         # Pass3 后回填
+                "indexable": True,                         # filled in after pass 3
                 "merge_source": "vlm",
                 "native_text": " ".join(
                     m.get("native_text", "") for m in members).strip(),
@@ -384,7 +401,7 @@ def process_doc(doc_id: str) -> dict:
                     for i in g["elements"]],
             }
             color = CHUNK_PALETTE[len(page_blocks) % len(CHUNK_PALETTE)]
-            for k, bb in enumerate(bboxes_px):  # 同 chunk 成员同色，仅首框贴标签
+            for k, bb in enumerate(bboxes_px):  # one colour per chunk; only the first box is tagged
                 overlay_boxes.append({
                     "bbox_px": bb, "color": color, "tag": True,
                     "label": (f"b{block['reading_order']:02d}:{g['block_type']}"
@@ -396,8 +413,8 @@ def process_doc(doc_id: str) -> dict:
                    overlay_boxes, overlay_dir / f"p{pno}_blocks.png",
                    label_key="label", color_map=None, width=4)
 
-    # Pass3：由全部 chunk（按阅读序）归纳 toc + 给每块分配 toc_path
-    print(f"[vlm] {doc_id}: pass3 由 {len(all_blocks)} 个 chunk 生成目录 ...")
+    # Pass 3: induce the toc from all chunks in reading order, assign toc_path
+    print(f"[vlm] {doc_id}: pass3 building the toc from {len(all_blocks)} chunks ...")
     digest = []
     for idx, (b, mt) in enumerate(zip(all_blocks, metas)):
         g = mt["g"]
@@ -412,9 +429,10 @@ def process_doc(doc_id: str) -> dict:
         except (TypeError, ValueError):
             continue
 
-    # 回填 toc_path / toc_redundant / indexable / descs
-    # 空 toc_path（非页眉脚、非兜底块）= 索引功能性块，不进索引；
-    # 硬护栏：含 figure/table 的块绝不被目录替代，VLM 误判空路径时兜底挂根
+    # Fill in toc_path / toc_redundant / indexable / descs.
+    # An empty toc_path marks an index-functional chunk (headers, page numbers),
+    # which stays out of the index. Hard guard: a chunk containing a figure or
+    # table is never dropped this way -- an empty path falls back to the root.
     descs = {}
     for idx, (b, mt) in enumerate(zip(all_blocks, metas)):
         g = mt["g"]
@@ -425,7 +443,7 @@ def process_doc(doc_id: str) -> dict:
         if vlm_path:
             b["toc_path"] = f"{doc_name} > {vlm_path}"
         elif has_graphic and b["block_type"] != "header_footer":
-            b["toc_path"] = doc_name        # 图表块误判空路径：兜底挂根
+            b["toc_path"] = doc_name        # graphic chunk, empty path: fall back to root
         else:
             b["toc_path"] = ""
         b["toc_redundant"] = toc_redundant
@@ -436,8 +454,9 @@ def process_doc(doc_id: str) -> dict:
                                     "keywords": g.get("keywords", []),
                                     "toc_path": b["toc_path"]}
 
-    # toc 用 Pass3(Gemini)按阅读序产出的 toc（digest 已按阅读序、index=阅读位置，
-    # prompt 明确要求按阅读序排）；文档名作为根，原各级整体下移一级挂其下
+    # Use the toc pass 3 produced in reading order (the digest is already in
+    # reading order, index = reading position, and the prompt requires it).
+    # The document name becomes the root; every existing level shifts down one.
     doc_card["doc_name"] = doc_name
     doc_card["toc"] = ([{"level": 1, "title": doc_name, "page": 1}] +
                        [{**t, "level": int(t.get("level", 1)) + 1}

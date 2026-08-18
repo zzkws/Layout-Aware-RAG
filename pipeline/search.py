@@ -1,9 +1,10 @@
-"""Stage 7: dense + BM25 双路召回 + RRF 融合检索。
+"""Stage 7: dual-path recall (dense + BM25) fused by RRF.
 
-召回结果 = native_text + description + 板块裁剪图 + 文件/页码/bbox，
-证据可直接回链到原 PDF 页面区域。
+Each result carries native_text, description, chunk crops, and the source
+file / page / bbox, so the evidence links straight back to a region of the
+original PDF page.
 
-用法:
+Usage:
     python pipeline/search.py "load capacitance 12pF crystal"
     python pipeline/search.py --json out.json "query1" "query2" ...
 """
@@ -98,7 +99,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("queries", nargs="+")
     ap.add_argument("--top-k", type=int, default=config.TOP_K)
-    ap.add_argument("--json", help="结果写入 JSON 文件（供报告用）")
+    ap.add_argument("--json", help="write results to a JSON file, for reporting")
     args = ap.parse_args()
 
     index = Index()

@@ -3,13 +3,13 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "evidence-rag-pilot"
-version = "0.1.0"
-description = "Evidence-first multimodal RAG for engineering datasheets"
+name = "layout-aware-retrieval"
+version = "0.1.2"
+description = "Layout-aware retrieval over engineering datasheets: page-native layout regions as a verifiable retrieval unit"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "Apache-2.0" }
-authors = [{ name = "zzkws" }]
+authors = [{ name = "Zikang Zhou" }]
 dependencies = [
   "numpy>=1.26,<3",
   "Pillow>=10,<13",
@@ -29,9 +29,11 @@ mcp = ["mcp>=1,<2", "pydantic>=2,<3"]
 dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
 
 [project.urls]
-Homepage = "https://github.com/zzkws/evidence-rag-pilot"
-Repository = "https://github.com/zzkws/evidence-rag-pilot"
-Issues = "https://github.com/zzkws/evidence-rag-pilot/issues"
+Homepage = "https://github.com/zzkws/Layout-Aware-Retrieval"
+Repository = "https://github.com/zzkws/Layout-Aware-Retrieval"
+Documentation = "https://github.com/zzkws/Layout-Aware-Retrieval/tree/main/docs"
+Demo = "https://evidence-rag-txc.zzkws.chatgpt.site"
+Issues = "https://github.com/zzkws/Layout-Aware-Retrieval/issues"
 
 [tool.setuptools]
 py-modules = ["config", "evidence_service"]
