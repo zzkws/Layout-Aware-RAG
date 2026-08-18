@@ -38,14 +38,18 @@ Each demo ships one-click example queries. Worth trying:
 - A **drawing or layout query** — `package dimensions land pattern`,
   `pin connection tri-state output`, where the answer is a figure rather than a
   sentence.
-- Then click a result: the **evidence image** is the exact crop of the exact page
-  region the hit came from, shown with its document, page number, and bounding
-  boxes. The chunk browser and document tree show how the pages were segmented.
+- Then click a result. Every hit shows its document, page number, and bounding
+  boxes; the **evidence image** — the exact crop of that page region — is bundled
+  for the example queries above. The chunk browser and document tree show how the
+  pages were segmented.
 
 What the hosted pages actually run: **live BM25 in your browser** against an
-inverted index shipped with the snapshot — real queries, not replayed fixtures —
-plus static evidence images. Dense retrieval, RRF fusion, and answer generation
-are local-pipeline features and are marked `offline` in the demo results.
+inverted index shipped with the snapshot — every chunk is searchable and queries
+are scored for real, not replayed from fixtures. Dense retrieval, RRF fusion, and
+answer generation are local-pipeline features, marked `offline` in the results.
+Evidence images are pre-rendered for the example queries rather than for all 875 /
+547 chunks, which keeps each snapshot a few megabytes instead of a few hundred; run
+the pipeline locally to get an image for every hit.
 
 > The demo interface is in Chinese; the pipeline, the code, and these docs are in
 > English.
