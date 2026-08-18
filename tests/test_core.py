@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from common.tokenize import tokenize
 from evidence_service import EvidenceService
 from pipeline.layout import dedup_elements
@@ -171,3 +173,21 @@ def test_a_vertically_contiguous_group_is_left_alone():
     assert len(out) == 1
     assert out[0]["elements"] == [0, 1]
     assert out[0]["description"] == "d"
+
+
+def test_missing_corpus_gives_an_actionable_message(tmp_path, monkeypatch):
+    """Cloning gives you the code but not the corpus, so this is the first
+    thing a new user hits. It must name the release, not just a path."""
+    import config
+    from pipeline import search as search_mod
+
+    monkeypatch.setattr(config, "INDEX_DIR", tmp_path / "index")
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")
+
+    with pytest.raises(SystemExit) as excinfo:
+        search_mod._require_index()
+
+    message = str(excinfo.value)
+    assert "releases/tag/v0.1.0" in message
+    assert "chunks.jsonl" in message
+    assert "RAG_CORPUS" in message

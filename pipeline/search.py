@@ -23,8 +23,35 @@ from common.tokenize import tokenize
 K1, B = 1.5, 0.75
 
 
+RELEASE_URL = "https://github.com/zzkws/Layout-Aware-RAG/releases/tag/v0.1.0"
+
+
+def _require_index() -> None:
+    """Fail with an actionable message when the corpus has not been restored.
+
+    Cloning the repository gives you the code but not the corpus, so this is the
+    first thing a new user hits. A bare FileNotFoundError on chunks.jsonl does
+    not tell them that a snapshot has to be downloaded first.
+    """
+    missing = [name for name in ("chunks.jsonl", "dense.npy", "bm25.json")
+               if not (config.INDEX_DIR / name).is_file()]
+    if not missing:
+        return
+    raise SystemExit(
+        f"No index found for corpus '{config.CORPUS}'.\n"
+        f"  expected in : {config.INDEX_DIR}\n"
+        f"  missing     : {', '.join(missing)}\n\n"
+        f"Restore the corpus snapshot from {RELEASE_URL}\n"
+        f"into {config.DATA_DIR.parent}, or build an index from your own PDFs "
+        f"with:\n"
+        f"  python -X utf8 -u run_full_corpus.py\n\n"
+        f"Select a corpus with RAG_CORPUS=txc|tkd (currently '{config.CORPUS}')."
+    )
+
+
 class Index:
     def __init__(self):
+        _require_index()
         self.chunks = [json.loads(line) for line in
                        (config.INDEX_DIR / "chunks.jsonl").read_text(
                            encoding="utf-8").splitlines()]
